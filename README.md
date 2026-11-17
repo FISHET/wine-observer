@@ -36,7 +36,18 @@ password. Don't swap the loader back without reading that file.
 | `npm run sync` | The `List` table → `data/cellar.csv` |
 | `npm run sync -- --table Notes` | Tasting notes → `data/notes.csv` |
 | `npm run sync -- --force` | Sync even if the file is under an hour old |
+| `npm run dev` | Vite dev server at http://localhost:5173 |
+| `npm run build` | Production build into `dist/` |
 | `npm test` | Unit tests |
 | `npm run typecheck` | `tsc --noEmit` |
 
 Tables available: `List`, `Inventory`, `Notes`, `Purchase`, `Pending`, `Consumed`.
+
+## The app
+
+`npm run dev` serves a sortable table of the cellar. Click any column heading to
+sort; click again to reverse it. Blanks always sort last, and NV wines sort apart
+from vintages rather than as the year 1001.
+
+The page imports `data/cellar.csv` directly, so **run `npm run sync` first** or the
+dev server and the build will both fail on the missing file.

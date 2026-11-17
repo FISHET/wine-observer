@@ -1,0 +1,120 @@
+:root {
+  --ink: #2b2118;
+  --muted: #8a7f74;
+  --line: #e4ded6;
+  --paper: #fdfbf8;
+  --row: #f7f3ee;
+  --wine: #7b2d3b;
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 15px/1.45 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+}
+
+main {
+  padding: 2rem 1.5rem 4rem;
+}
+
+header {
+  margin-bottom: 1.25rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.summary {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+table.wines {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13.5px;
+}
+
+.wines th,
+.wines td {
+  padding: 0.4rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.wines th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 0;
+  background: var(--paper);
+  border-bottom: 1.5px solid var(--ink);
+  text-align: inherit;
+}
+
+.wines th button {
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 600;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-align: inherit;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.wines th button:hover {
+  color: var(--wine);
+}
+
+.wines th.sorted button {
+  color: var(--ink);
+}
+
+.arrow {
+  display: inline-block;
+  width: 0.9em;
+  color: var(--wine);
+}
+
+.wines tbody tr:nth-child(even) {
+  background: var(--row);
+}
+
+.wines tbody tr:hover {
+  background: #f0e9e1;
+}
+
+.wines td.right {
+  font-variant-numeric: tabular-nums;
+}
+
+.left {
+  text-align: left;
+}
+
+.right {
+  text-align: right;
+}
+
+/* The wine name carries the row, so give it room and let it wrap. */
+.wines td:first-child {
+  max-width: 24rem;
+  white-space: normal;
+  font-weight: 500;
+}
