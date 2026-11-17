@@ -118,3 +118,67 @@ table.wines {
   white-space: normal;
   font-weight: 500;
 }
+
+header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 2rem;
+}
+
+.sync {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.synced-at {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.sync button {
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--wine);
+  border-radius: 999px;
+  background: var(--wine);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sync button:hover:not(:disabled) {
+  background: #652532;
+}
+
+.sync button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.notice {
+  margin: 0 0 1rem;
+  padding: 0.6rem 0.85rem;
+  border-left: 3px solid var(--muted);
+  background: var(--row);
+  color: var(--ink);
+  font-size: 13.5px;
+}
+
+.notice.error {
+  border-left-color: var(--wine);
+  background: #fbeef0;
+}
+
+button.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--wine);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
