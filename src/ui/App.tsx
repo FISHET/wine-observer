@@ -19,6 +19,15 @@ export function App() {
 
   const syncedAt = cellar?.lastSyncedAt ? new Date(cellar.lastSyncedAt) : null;
   const counts = cellar?.totals;
+  const nightly = cellar?.nightly ?? null;
+  const lastRun = nightly?.lastRun ?? null;
+  // A manual sync since the failed run has fixed List, so stop nagging about it.
+  const listFixedSince =
+    lastRun !== null && syncedAt !== null && syncedAt > new Date(lastRun.finishedAt);
+  const nightlyFailures =
+    lastRun?.tables.filter(
+      (t) => t.status === 'failed' && !(t.table === 'List' && listFixedSince),
+    ) ?? [];
 
   return (
     <main>
@@ -37,6 +46,12 @@ export function App() {
         <div className="sync">
           <span className="synced-at">
             {syncedAt ? `Last synced ${timeAgo(syncedAt)}` : 'Never synced'}
+            {nightly && (
+              <>
+                <br />
+                Syncs automatically at {nightly.at}
+              </>
+            )}
           </span>
           <button type="button" onClick={() => sync()} disabled={syncing || phase === 'loading'}>
             {syncing ? 'Syncing…' : 'Sync'}
@@ -47,6 +62,14 @@ export function App() {
       {error && (
         <p className="notice error" role="alert">
           {error}
+        </p>
+      )}
+
+      {nightlyFailures.length > 0 && lastRun && (
+        <p className="notice error" role="alert">
+          The automatic sync {timeAgo(new Date(lastRun.startedAt))} failed for{' '}
+          {nightlyFailures.map((t) => t.table).join(' and ')}:{' '}
+          {nightlyFailures[0]?.status === 'failed' && nightlyFailures[0].error}
         </p>
       )}
 

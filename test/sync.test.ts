@@ -4,7 +4,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test, { describe } from 'node:test';
 
-import { credentialsFromEnv, filePath, MissingCredentialsError, singleFlight, sync } from '../src/sync.ts';
+import {
+  createSyncer,
+  credentialsFromEnv,
+  filePath,
+  MissingCredentialsError,
+  singleFlight,
+  sync,
+} from '../src/sync.ts';
 
 const credentials = { user: 'tom', password: 'secret' };
 const csv = 'iWine,Wine,Quantity\n1,Château Batailley,6\n2,Vieux Télégraphe,1\n';
@@ -139,6 +146,75 @@ describe('singleFlight', () => {
     const run = singleFlight<number>();
     await assert.rejects(() => run(async () => { throw new Error('nope'); }));
     assert.equal(await run(async () => 1), 1);
+  });
+});
+
+describe('createSyncer', () => {
+  /** A fetch that holds every request open until released. */
+  function heldFetch() {
+    const tables: string[] = [];
+    const waiting: Array<() => void> = [];
+    let arrived: () => void = () => {};
+    const impl = (async (url: URL) => {
+      tables.push(url.searchParams.get('Table')!);
+      arrived();
+      await new Promise<void>((release) => waiting.push(release));
+      return new Response(Uint8Array.from([...csv].map((c) => c.charCodeAt(0) & 0xff)));
+    }) as unknown as typeof fetch;
+
+    /** Resolves once n requests have reached CellarTracker. */
+    const reached = async (n: number) => {
+      while (tables.length < n) await new Promise<void>((r) => (arrived = r));
+    };
+    return { impl, tables, reached, releaseAll: () => waiting.splice(0).forEach((r) => r()) };
+  }
+
+  test('the button and the nightly job share one fetch for the same table', async () => {
+    const dataDir = await newDataDir();
+    const fetch = heldFetch();
+    const syncer = createSyncer({ dataDir, credentials: () => credentials, fetchImpl: fetch.impl });
+
+    const button = syncer({ table: 'List', force: true });
+    const nightly = syncer({ table: 'List' });
+    await fetch.reached(1);
+    // Give a second fetch every chance to start, if the lock were broken.
+    await new Promise((r) => setTimeout(r, 20));
+    fetch.releaseAll();
+    await Promise.all([button, nightly]);
+
+    assert.deepEqual(fetch.tables, ['List']);
+  });
+
+  test('different tables are not held up by each other', async () => {
+    const dataDir = await newDataDir();
+    const fetch = heldFetch();
+    const syncer = createSyncer({ dataDir, credentials: () => credentials, fetchImpl: fetch.impl });
+
+    const list = syncer({ table: 'List' });
+    const notes = syncer({ table: 'Notes' });
+    // Both in flight at once: neither has been released yet.
+    await fetch.reached(2);
+    assert.deepEqual(fetch.tables.sort(), ['List', 'Notes']);
+
+    fetch.releaseAll();
+    await Promise.all([list, notes]);
+  });
+
+  test('reads the credentials at sync time, so editing .env.local needs no restart', async () => {
+    const dataDir = await newDataDir();
+    let user = 'before';
+    const seen: string[] = [];
+    const fetchImpl = (async (url: URL) => {
+      seen.push(url.searchParams.get('User')!);
+      return new Response(csv);
+    }) as unknown as typeof fetch;
+    const syncer = createSyncer({ dataDir, credentials: () => ({ user, password: 'x' }), fetchImpl });
+
+    await syncer({ force: true });
+    user = 'after';
+    await syncer({ force: true });
+
+    assert.deepEqual(seen, ['before', 'after']);
   });
 });
 

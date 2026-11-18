@@ -104,6 +104,37 @@ export function singleFlight<T>(): (job: () => Promise<T>) => Promise<T> {
   };
 }
 
+export type SyncRequest = { table?: Table; force?: boolean };
+
+/** Syncs one table. Each process should hold exactly one of these. */
+export type Syncer = (request?: SyncRequest) => Promise<SyncOutcome>;
+
+export type SyncerOptions = Omit<SyncOptions, 'table' | 'force' | 'credentials'> & {
+  /**
+   * Read afresh on each sync, rather than captured at startup, so correcting
+   * .env.local doesn't need a restart.
+   */
+  credentials: () => Credentials;
+};
+
+/**
+ * One lock per table, shared by everything that syncs: the button and the
+ * nightly job can't both fetch the same table at once.
+ */
+export function createSyncer(options: SyncerOptions): Syncer {
+  const { credentials, ...rest } = options;
+  const gates = new Map<Table, ReturnType<typeof singleFlight<SyncOutcome>>>();
+
+  return ({ table = 'List', force = false } = {}) => {
+    let gate = gates.get(table);
+    if (!gate) {
+      gate = singleFlight<SyncOutcome>();
+      gates.set(table, gate);
+    }
+    return gate(() => sync({ ...rest, credentials: credentials(), table, force }));
+  };
+}
+
 export class MissingCredentialsError extends Error {}
 
 /** Reads the credentials from the environment, failing with a useful message. */

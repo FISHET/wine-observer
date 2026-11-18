@@ -1,0 +1,19 @@
+services:
+  cellar:
+    build: .
+    restart: unless-stopped
+    ports:
+      # LAN only: don't forward this port on the router. There is no login.
+      - "8080:8080"
+    environment:
+      TZ: Europe/London
+      NIGHTLY_SYNC_AT: "03:00"
+    volumes:
+      # Synced CSVs land here, beside the hand-maintained JSON (locations,
+      # categories) in the checkout. The node user is uid 1000, so the host
+      # directory must be writable by that uid.
+      - ./data:/app/data
+      # Mounted rather than passed with env_file: Compose parses .env files by
+      # its own rules, and the app's loader exists precisely so a '#' in the
+      # password survives. See src/env.ts.
+      - ./.env.local:/app/.env.local:ro

@@ -135,6 +135,8 @@ header {
 .synced-at {
   color: var(--muted);
   font-size: 13px;
+  text-align: right;
+  line-height: 1.4;
 }
 
 .sync button {

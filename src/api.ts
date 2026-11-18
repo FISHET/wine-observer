@@ -2,25 +2,26 @@
  * The cellar API.
  *
  * Written as connect-style middleware so the same handler runs inside the Vite
- * dev server and inside the standalone server, rather than having a dev path
- * and a production path that can drift apart.
+ * dev server and inside the standalone server (src/server.ts), rather than
+ * having a dev path and a production path that can drift apart.
  *
- *   GET  /api/cellar      the parsed cellar, plus when it was last synced
+ *   GET  /api/cellar      the parsed cellar, when it was last synced, and the
+ *                         nightly sync's status (null under the dev server)
  *   POST /api/sync        pull from CellarTracker; ?force=1 ignores the limit
  */
 import { readFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import { CellarTrackerError, type Credentials } from './cellartracker.ts';
+import type { NightlyStatus } from './nightly.ts';
 import {
+  createSyncer,
   credentialsFromEnv,
   filePath,
   lastSyncedAt,
   MINIMUM_AGE_MS,
   MissingCredentialsError,
-  singleFlight,
-  sync,
-  type SyncOutcome,
+  type Syncer,
 } from './sync.ts';
 import { parseCellar, totals, type CellarTotals, type Wine } from './wine.ts';
 
@@ -31,6 +32,8 @@ export type Cellar = {
   lastSyncedAt: string | null;
   /** How long a sync is held off for, so the UI can explain the wait. */
   minimumAgeMs: number;
+  /** Null when nothing is scheduled, as under the Vite dev server. */
+  nightly: NightlyStatus | null;
 };
 
 export type SyncResponse = Cellar & {
@@ -46,6 +49,12 @@ export type ApiOptions = {
    * .env.local doesn't need a restart. Overridable for tests.
    */
   credentials?: () => Credentials;
+  /**
+   * The process's shared syncer, so the API and the nightly job share one lock
+   * per table. One is made from the options above when not given.
+   */
+  syncer?: Syncer;
+  nightly?: () => NightlyStatus | null;
 };
 
 type Next = (error?: unknown) => void;
@@ -56,15 +65,22 @@ export function createApi(options: ApiOptions) {
     minimumAgeMs = MINIMUM_AGE_MS,
     fetchImpl,
     credentials = () => credentialsFromEnv(),
+    nightly = () => null,
   } = options;
+  const syncer = options.syncer ?? createSyncer({ dataDir, credentials, minimumAgeMs, fetchImpl });
   const path = filePath(dataDir);
-  const runSync = singleFlight<SyncOutcome>();
 
   async function readCellar(): Promise<Cellar> {
     const syncedAt = await lastSyncedAt(path);
 
     if (syncedAt === null) {
-      return { wines: [], totals: totals([]), lastSyncedAt: null, minimumAgeMs };
+      return {
+        wines: [],
+        totals: totals([]),
+        lastSyncedAt: null,
+        minimumAgeMs,
+        nightly: nightly(),
+      };
     }
 
     const csv = await readFile(path, 'utf8');
@@ -75,6 +91,7 @@ export function createApi(options: ApiOptions) {
       totals: totals(wines),
       lastSyncedAt: syncedAt.toISOString(),
       minimumAgeMs,
+      nightly: nightly(),
     };
   }
 
@@ -90,9 +107,7 @@ export function createApi(options: ApiOptions) {
 
       if (req.method === 'POST' && url.pathname === '/api/sync') {
         const force = url.searchParams.get('force') === '1';
-        const outcome = await runSync(() =>
-          sync({ dataDir, credentials: credentials(), force, minimumAgeMs, fetchImpl }),
-        );
+        const outcome = await syncer({ table: 'List', force });
 
         const body: SyncResponse = {
           ...(await readCellar()),

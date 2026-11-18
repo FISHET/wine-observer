@@ -10,8 +10,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
+    "start": "node scripts/serve.ts",
     "sync": "node scripts/sync.ts",
-    "test": "node --test \"test/**/*.test.ts\"",
+    "test": "node --test --test-timeout=10000 \"test/**/*.test.ts\"",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
