@@ -10,8 +10,8 @@ import { runNightly, scheduleNightly, type Schedule } from './nightly.ts';
 import { serveStatic } from './static.ts';
 import { createSyncer, credentialsFromEnv, filePath, lastSyncedAt } from './sync.ts';
 
-/** List is the stock. Notes will feed the tasting-notes view. */
-export const NIGHTLY_TABLES: readonly Table[] = ['List', 'Notes'];
+/** List is the stock; Consumed and Notes feed the notes page. */
+export const NIGHTLY_TABLES: readonly Table[] = ['List', 'Notes', 'Consumed'];
 
 export type ServerOptions = {
   dataDir: string;

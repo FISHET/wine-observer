@@ -35,6 +35,7 @@ password. Don't swap the loader back without reading that file.
 |---|---|
 | `npm run sync` | The `List` table → `data/cellar.csv` |
 | `npm run sync -- --table Notes` | Tasting notes → `data/notes.csv` |
+| `npm run sync -- --table Consumed` | Bottles consumed → `data/consumed.csv` |
 | `npm run sync -- --force` | Sync even if the file is under an hour old |
 | `npm run dev` | Vite dev server at http://localhost:5173 |
 | `npm run build` | Production build into `dist/` |
@@ -46,14 +47,30 @@ Tables available: `List`, `Inventory`, `Notes`, `Purchase`, `Pending`, `Consumed
 
 ## The app
 
-`npm run dev` serves a sortable table of the cellar. Click any column heading to
-sort; click again to reverse it. Blanks always sort last, and NV wines sort apart
-from vintages rather than as the year 1001.
+| Page | What it shows |
+|---|---|
+| `/` | Links to the other pages |
+| `/cellar` | A sortable table of every wine in stock (the `List` table) |
+| `/notes` | Every tasting note and every bottle consumed, newest first (`Notes` joined to `Consumed`) |
 
-The page loads the cellar from a small API (`src/api.ts`) rather than bundling
-the CSV, so it builds without one. Before the first sync it says so; hit
-**Sync** in the header. A sync within the last hour is skipped unless you choose
-**Sync anyway**, because CellarTracker ask that the export isn't hammered.
+Click any column heading to sort; click again to reverse it. Blanks always sort
+last, and NV wines sort apart from vintages rather than as the year 1001.
+
+Each page loads from a small API (`src/api.ts`) rather than bundling the CSV,
+so it builds without one. Before the first sync it says so; hit **Sync** in the
+header. **Sync** on `/notes` pulls both `Consumed` and `Notes`. A table
+synced within the last hour is skipped unless you choose **Sync anyway**,
+because CellarTracker ask that the export isn't hammered.
+
+A note is matched to its bottle by CellarTracker's own link (`iNote`) where
+there is one. Otherwise it goes to a bottle of the same wine (`iWine`) drunk
+on the day or up to three days before the note, since notes often get written
+up the next morning. A note that matches no bottle, such as a tasting or a
+bottle bought out, is listed on its own as "Not from the cellar", and a bottle
+nobody wrote up is listed without a note.
+
+Each row carries its `source` (`src/notes.ts`), so notes from elsewhere, such
+as a Vivino export, can be mapped into the same shape and listed alongside.
 
 ## Running on the home server
 
@@ -78,7 +95,7 @@ expose the port beyond the LAN.
 ### The nightly sync
 
 At `NIGHTLY_SYNC_AT` (default `03:00`, local time per `TZ`) the server syncs the
-`List` and `Notes` tables:
+`List`, `Notes` and `Consumed` tables:
 
 - A table already **synced since midnight** is skipped, so a manual sync that
   evening counts for the night. The hourly limit still applies too.

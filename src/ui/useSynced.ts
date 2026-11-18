@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import type { Cellar, SyncResponse } from '../api.ts';
+import type { OutcomeBody, SyncedPage, SyncResponse } from '../api.ts';
 
 type Phase = 'loading' | 'ready' | 'error';
 
-export type CellarState = {
-  cellar: Cellar | null;
+export type SyncedState<Page extends SyncedPage> = {
+  page: Page | null;
   phase: Phase;
   error: string | null;
   syncing: boolean;
   /** The result of the last sync this session, so the UI can explain a skip. */
-  outcome: SyncResponse['outcome'] | null;
+  outcome: OutcomeBody | null;
   sync: (force?: boolean) => void;
 };
 
@@ -25,20 +25,27 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-export function useCellar(): CellarState {
-  const [cellar, setCellar] = useState<Cellar | null>(null);
+/**
+ * Loads a page's data from `endpoint`, and syncs it from CellarTracker by
+ * POSTing to `syncEndpoint`, which answers with the fresh data.
+ */
+export function useSynced<Page extends SyncedPage>(
+  endpoint: string,
+  syncEndpoint: string,
+): SyncedState<Page> {
+  const [page, setPage] = useState<Page | null>(null);
   const [phase, setPhase] = useState<Phase>('loading');
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
-  const [outcome, setOutcome] = useState<SyncResponse['outcome'] | null>(null);
+  const [outcome, setOutcome] = useState<OutcomeBody | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    request<Cellar>('/api/cellar')
+    request<Page>(endpoint)
       .then((data) => {
         if (cancelled) return;
-        setCellar(data);
+        setPage(data);
         setPhase('ready');
       })
       .catch((caught: Error) => {
@@ -50,24 +57,24 @@ export function useCellar(): CellarState {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [endpoint]);
 
   const sync = useCallback(
     (force = false) => {
       setSyncing(true);
       setError(null);
 
-      request<SyncResponse>(`/api/sync${force ? '?force=1' : ''}`, { method: 'POST' })
+      request<SyncResponse<Page>>(`${syncEndpoint}${force ? '?force=1' : ''}`, { method: 'POST' })
         .then((data) => {
-          setCellar(data);
+          setPage(data);
           setOutcome(data.outcome);
           setPhase('ready');
         })
         .catch((caught: Error) => setError(caught.message))
         .finally(() => setSyncing(false));
     },
-    [],
+    [syncEndpoint],
   );
 
-  return { cellar, phase, error, syncing, outcome, sync };
+  return { page, phase, error, syncing, outcome, sync };
 }

@@ -112,11 +112,24 @@ table.wines {
   text-align: right;
 }
 
-/* The wine name carries the row, so give it room and let it wrap. */
-.wines td:first-child {
+/* Long text (the wine name, a tasting note) wraps rather than stretching the table. */
+.wines td.wrap {
+  min-width: 14rem;
   max-width: 24rem;
   white-space: normal;
+}
+
+/* The wine name carries the row. */
+.wines td.col-wine {
   font-weight: 500;
+}
+
+/* A tasting note is the point of the notes page: give it room to read. */
+.wines td.col-note {
+  min-width: 24rem;
+  max-width: 36rem;
+  color: var(--ink);
+  font-size: 13px;
 }
 
 header {
@@ -183,4 +196,55 @@ button.link {
   font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
+}
+
+nav {
+  margin-bottom: 1rem;
+}
+
+a {
+  color: var(--wine);
+}
+
+.back {
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.back:hover {
+  text-decoration: underline;
+}
+
+.pages {
+  display: grid;
+  gap: 0.75rem;
+  max-width: 32rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.pages a {
+  display: block;
+  padding: 0.9rem 1.1rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--wine);
+  background: var(--row);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.pages a:hover {
+  background: #f0e9e1;
+}
+
+.pages strong {
+  display: block;
+  font-size: 1.05rem;
+}
+
+.pages span {
+  color: var(--muted);
+  font-size: 13.5px;
 }

@@ -1,24 +1,30 @@
 import { useMemo, useState } from 'react';
 
-import { columns, sortWines, type Column, type Direction } from '../columns.ts';
-import type { Wine } from '../wine.ts';
+import { sortRows, type Column, type Direction } from '../table.ts';
 
 type Sort = { key: string; direction: Direction };
 
-/** Text sorts A-Z first; numbers are more useful biggest-first. */
-function defaultDirection(column: Column): Direction {
+/** Text sorts A-Z first; numbers and dates are more useful biggest-first. */
+function defaultDirection<T>(column: Column<T>): Direction {
   return column.align === 'right' ? 'desc' : 'asc';
 }
 
-export function WineTable({ wines }: { wines: Wine[] }) {
-  const [sort, setSort] = useState<Sort>({ key: 'producer', direction: 'asc' });
+type Props<T> = {
+  rows: T[];
+  columns: Column<T>[];
+  rowKey: (row: T) => string;
+  initialSort: Sort;
+};
+
+export function DataTable<T>({ rows, columns, rowKey, initialSort }: Props<T>) {
+  const [sort, setSort] = useState<Sort>(initialSort);
 
   const sorted = useMemo(() => {
     const column = columns.find((c) => c.key === sort.key) ?? columns[0]!;
-    return sortWines(wines, column, sort.direction);
-  }, [wines, sort]);
+    return sortRows(rows, column, sort.direction);
+  }, [rows, columns, sort]);
 
-  const toggle = (column: Column) => {
+  const toggle = (column: Column<T>) => {
     setSort((current) =>
       current.key === column.key
         ? { key: column.key, direction: current.direction === 'asc' ? 'desc' : 'asc' }
@@ -48,11 +54,15 @@ export function WineTable({ wines }: { wines: Wine[] }) {
         </tr>
       </thead>
       <tbody>
-        {sorted.map((wine) => (
-          <tr key={`${wine.id}-${wine.size}-${wine.vintage ?? 'NV'}`}>
+        {sorted.map((row) => (
+          <tr key={rowKey(row)}>
             {columns.map((column) => (
-              <td key={column.key} className={column.align} title={column.title?.(wine)}>
-                {column.render(wine)}
+              <td
+                key={column.key}
+                className={`col-${column.key} ${column.align}${column.wrap ? ' wrap' : ''}`}
+                title={column.title?.(row)}
+              >
+                {column.render(row)}
               </td>
             ))}
           </tr>

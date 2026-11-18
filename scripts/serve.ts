@@ -34,7 +34,7 @@ cellar.server.listen(port, host, () => {
   if (status) {
     const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     log(
-      `Nightly sync of ${NIGHTLY_TABLES.join(' and ')} at ${status.at} ${zone}; ` +
+      `Nightly sync of ${NIGHTLY_TABLES.join(', ')} at ${status.at} ${zone}; ` +
         `next run ${status.nextRunAt}`,
     );
   } else {

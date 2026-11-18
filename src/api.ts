@@ -7,13 +7,19 @@
  *
  *   GET  /api/cellar      the parsed cellar, when it was last synced, and the
  *                         nightly sync's status (null under the dev server)
- *   POST /api/sync        pull from CellarTracker; ?force=1 ignores the limit
+ *   POST /api/sync        pull the cellar (List) from CellarTracker
+ *   GET  /api/notes       every tasting note and every bottle consumed
+ *   POST /api/notes/sync  pull Consumed and Notes from CellarTracker
+ *
+ * Either sync takes ?force=1 to ignore the freshness limit.
  */
 import { readFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
-import { CellarTrackerError, type Credentials } from './cellartracker.ts';
+import { CellarTrackerError, type Credentials, type Table } from './cellartracker.ts';
+import { buildEntries, notesTotals, parseConsumed, parseNotes, type Entry, type NotesTotals } from './notes.ts';
 import type { NightlyStatus } from './nightly.ts';
+import { CELLAR_TABLES, NOTES_TABLES } from './pageTables.ts';
 import {
   createSyncer,
   credentialsFromEnv,
@@ -21,24 +27,50 @@ import {
   lastSyncedAt,
   MINIMUM_AGE_MS,
   MissingCredentialsError,
+  type SyncOutcome,
   type Syncer,
 } from './sync.ts';
 import { parseCellar, totals, type CellarTotals, type Wine } from './wine.ts';
 
-export type Cellar = {
-  wines: Wine[];
-  totals: CellarTotals;
-  /** ISO timestamp, or null when the cellar has never been synced. */
+/** What every page that shows synced data needs to explain its freshness. */
+export type SyncedPage = {
+  /** ISO timestamp of the stalest synced table behind the page; null if none ever has. */
   lastSyncedAt: string | null;
+  /** Per table, so a nightly failure can be cleared once that table is fixed. */
+  syncedAt: Partial<Record<Table, string | null>>;
   /** How long a sync is held off for, so the UI can explain the wait. */
   minimumAgeMs: number;
   /** Null when nothing is scheduled, as under the Vite dev server. */
   nightly: NightlyStatus | null;
 };
 
-export type SyncResponse = Cellar & {
-  outcome: { status: 'synced'; records: number } | { status: 'skipped'; ageMs: number };
+export type Cellar = SyncedPage & {
+  wines: Wine[];
+  totals: CellarTotals;
 };
+
+export type NotesData = SyncedPage & {
+  entries: Entry[];
+  totals: NotesTotals;
+};
+
+export type OutcomeBody = { status: 'synced'; records: number } | { status: 'skipped'; ageMs: number };
+
+export type SyncResponse<Page extends SyncedPage = Cellar> = Page & { outcome: OutcomeBody };
+
+/**
+ * One outcome for a sync of several tables. It counts as synced if any table
+ * was fetched. Only when all were skipped is it a skip, and then the wait is
+ * until the most recently synced one is due again.
+ */
+export function combineOutcomes(outcomes: readonly SyncOutcome[]): OutcomeBody {
+  const synced = outcomes.filter((o) => o.status === 'synced');
+  if (synced.length > 0) {
+    return { status: 'synced', records: synced.reduce((sum, o) => sum + o.records, 0) };
+  }
+  const ages = outcomes.map((o) => (o.status === 'skipped' ? o.ageMs : 0));
+  return { status: 'skipped', ageMs: Math.min(...ages) };
+}
 
 export type ApiOptions = {
   dataDir: string;
@@ -68,31 +100,52 @@ export function createApi(options: ApiOptions) {
     nightly = () => null,
   } = options;
   const syncer = options.syncer ?? createSyncer({ dataDir, credentials, minimumAgeMs, fetchImpl });
-  const path = filePath(dataDir);
 
-  async function readCellar(): Promise<Cellar> {
-    const syncedAt = await lastSyncedAt(path);
+  /** Reads each table, or null for one never synced. */
+  async function readTables(tables: readonly Table[]) {
+    return Promise.all(
+      tables.map(async (table) => {
+        const path = filePath(dataDir, table);
+        const syncedAt = await lastSyncedAt(path);
+        return { table, syncedAt, csv: syncedAt ? await readFile(path, 'utf8') : null };
+      }),
+    );
+  }
 
-    if (syncedAt === null) {
-      return {
-        wines: [],
-        totals: totals([]),
-        lastSyncedAt: null,
-        minimumAgeMs,
-        nightly: nightly(),
-      };
-    }
-
-    const csv = await readFile(path, 'utf8');
-    const wines = parseCellar(csv);
+  /** The freshness fields. A page is as stale as its stalest synced table. */
+  function freshness(tables: { table: Table; syncedAt: Date | null }[]): SyncedPage {
+    const dates = tables.flatMap((t) => (t.syncedAt ? [t.syncedAt] : []));
+    const stalest = dates.reduce<Date | null>((min, d) => (min && min < d ? min : d), null);
 
     return {
-      wines,
-      totals: totals(wines),
-      lastSyncedAt: syncedAt.toISOString(),
+      lastSyncedAt: stalest?.toISOString() ?? null,
+      syncedAt: Object.fromEntries(tables.map((t) => [t.table, t.syncedAt?.toISOString() ?? null])),
       minimumAgeMs,
       nightly: nightly(),
     };
+  }
+
+  async function readCellar(): Promise<Cellar> {
+    const tables = await readTables(CELLAR_TABLES);
+    const wines = tables[0]?.csv ? parseCellar(tables[0].csv) : [];
+    return { ...freshness(tables), wines, totals: totals(wines) };
+  }
+
+  async function readNotes(): Promise<NotesData> {
+    const tables = await readTables(NOTES_TABLES);
+    const [consumed, notes] = tables;
+    const entries = buildEntries(
+      consumed?.csv ? parseConsumed(consumed.csv) : [],
+      notes?.csv ? parseNotes(notes.csv) : [],
+    );
+    return { ...freshness(tables), entries, totals: notesTotals(entries) };
+  }
+
+  /** One table at a time, so a failure doesn't leave a second fetch running. */
+  async function syncTables(tables: readonly Table[], force: boolean): Promise<OutcomeBody> {
+    const outcomes: SyncOutcome[] = [];
+    for (const table of tables) outcomes.push(await syncer({ table, force }));
+    return combineOutcomes(outcomes);
   }
 
   return function api(req: IncomingMessage, res: ServerResponse, next: Next): void {
@@ -100,26 +153,32 @@ export function createApi(options: ApiOptions) {
 
     if (!url.pathname.startsWith('/api/')) return next();
 
+    const force = url.searchParams.get('force') === '1';
+    const route = `${req.method} ${url.pathname}`;
+
     const handle = async () => {
-      if (req.method === 'GET' && url.pathname === '/api/cellar') {
-        return send(res, 200, await readCellar());
+      switch (route) {
+        case 'GET /api/cellar':
+          return send(res, 200, await readCellar());
+
+        case 'POST /api/sync': {
+          const outcome = await syncTables(CELLAR_TABLES, force);
+          const body: SyncResponse<Cellar> = { ...(await readCellar()), outcome };
+          return send(res, 200, body);
+        }
+
+        case 'GET /api/notes':
+          return send(res, 200, await readNotes());
+
+        case 'POST /api/notes/sync': {
+          const outcome = await syncTables(NOTES_TABLES, force);
+          const body: SyncResponse<NotesData> = { ...(await readNotes()), outcome };
+          return send(res, 200, body);
+        }
+
+        default:
+          return send(res, 404, { error: `No route for ${route}` });
       }
-
-      if (req.method === 'POST' && url.pathname === '/api/sync') {
-        const force = url.searchParams.get('force') === '1';
-        const outcome = await syncer({ table: 'List', force });
-
-        const body: SyncResponse = {
-          ...(await readCellar()),
-          outcome:
-            outcome.status === 'synced'
-              ? { status: 'synced', records: outcome.records }
-              : { status: 'skipped', ageMs: outcome.ageMs },
-        };
-        return send(res, 200, body);
-      }
-
-      return send(res, 404, { error: `No route for ${req.method} ${url.pathname}` });
     };
 
     handle().catch((error: unknown) => {

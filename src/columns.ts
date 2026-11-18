@@ -1,40 +1,28 @@
 /**
- * The table's columns: what to show, what to sort on, and how to render it.
- * Pure, so the ordering can be tested without rendering anything.
+ * The cellar table's columns: what to show, what to sort on, and how to
+ * render it. The generic machinery lives in table.ts.
  */
-import type { Score, Wine } from './wine.ts';
+import {
+  asCount,
+  asMoney,
+  asScore,
+  asYear,
+  EMPTY,
+  scoreValue,
+  sortRows,
+  type Column,
+  type Direction,
+} from './table.ts';
+import type { Wine } from './wine.ts';
 
-export type SortValue = string | number | null;
+export { EMPTY };
 
-export type Column = {
-  key: string;
-  label: string;
-  align: 'left' | 'right';
-  /** Null sorts last whichever way the column is pointing. */
-  sortValue: (wine: Wine) => SortValue;
-  render: (wine: Wine) => string;
-  title?: (wine: Wine) => string | undefined;
-};
-
-const gbp = new Intl.NumberFormat('en-GB', {
-  style: 'currency',
-  currency: 'GBP',
-  maximumFractionDigits: 0,
-});
-
-export const EMPTY = '–'; // en dash
-
-const asMoney = (value: number | null) => (value === null ? EMPTY : gbp.format(value));
-const asCount = (value: number) => (value === 0 ? EMPTY : String(value));
-const asYear = (value: number | null) => (value === null ? EMPTY : String(value));
-const asScore = (score: Score | null) => (score === null ? EMPTY : score.text);
-const scoreValue = (score: Score | null) => (score === null ? null : score.value);
-
-export const columns: Column[] = [
+export const columns: Column<Wine>[] = [
   {
     key: 'wine',
     label: 'Wine',
     align: 'left',
+    wrap: true,
     sortValue: (w) => w.wine,
     render: (w) => w.wine,
   },
@@ -157,29 +145,6 @@ export const columns: Column[] = [
   },
 ];
 
-export type Direction = 'asc' | 'desc';
-
-const collator = new Intl.Collator('en-GB', { sensitivity: 'base', numeric: true });
-
-/**
- * Sorts a copy of the wines by one column. Blanks always sort last, so that
- * flipping the direction doesn't bury the rows that do have a value.
- */
-export function sortWines(wines: Wine[], column: Column, direction: Direction): Wine[] {
-  const sign = direction === 'asc' ? 1 : -1;
-
-  return [...wines].sort((a, b) => {
-    const left = column.sortValue(a);
-    const right = column.sortValue(b);
-
-    if (left === null && right === null) return 0;
-    if (left === null) return 1;
-    if (right === null) return -1;
-
-    if (typeof left === 'number' && typeof right === 'number') {
-      return (left - right) * sign;
-    }
-
-    return collator.compare(String(left), String(right)) * sign;
-  });
+export function sortWines(wines: Wine[], column: Column<Wine>, direction: Direction): Wine[] {
+  return sortRows(wines, column, direction);
 }

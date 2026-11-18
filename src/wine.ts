@@ -5,7 +5,7 @@
 import { parseCsv, type Row } from './csv.ts';
 
 /** CellarTracker's stand-in vintage for a non-vintage wine. */
-const NON_VINTAGE = 1001;
+export const NON_VINTAGE = 1001;
 
 /** CellarTracker writes this word rather than leaving a field empty. */
 const UNKNOWN = 'Unknown';
@@ -59,12 +59,12 @@ export type Wine = {
   decanterScore: Score | null;
 };
 
-function text(row: Row, column: string): string | null {
+export function text(row: Row, column: string): string | null {
   const value = (row[column] ?? '').trim();
   return value === '' || value === UNKNOWN ? null : value;
 }
 
-function number(row: Row, column: string): number | null {
+export function number(row: Row, column: string): number | null {
   const value = (row[column] ?? '').trim();
   if (value === '') return null;
   const parsed = Number(value);
@@ -77,7 +77,7 @@ function count(row: Row, column: string): number {
 }
 
 /** Money, where zero means "not recorded" rather than "free". */
-function money(row: Row, column: string): number | null {
+export function money(row: Row, column: string): number | null {
   const value = number(row, column);
   return value === null || value === 0 ? null : value;
 }
