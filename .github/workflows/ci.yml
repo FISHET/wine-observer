@@ -1,4 +1,5 @@
-# Typecheck, test and build on every push and pull request.
+# Typecheck, test and build on pull requests to main, and on main itself once
+# one is merged. Branch pushes don't trigger it, or a PR would run twice.
 #
 #   app     typecheck, unit tests, then the Vite build, kept as the
 #           `dist` artefact on the run

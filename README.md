@@ -46,8 +46,9 @@ password. Don't swap the loader back without reading that file.
 Tables available: `List`, `Inventory`, `Notes`, `Purchase`, `Pending`, `Consumed`.
 
 GitHub Actions (`.github/workflows/ci.yml`) runs the typecheck, tests and
-build on every push and on pull requests to `main`. It keeps `dist/` as a run
-artefact for 14 days, and it builds the Docker image without pushing it.
+build on pull requests to `main`, and again on `main` once one is merged. It
+keeps `dist/` as a run artefact for 14 days, and it builds the Docker image
+without pushing it.
 
 ## The app
 
