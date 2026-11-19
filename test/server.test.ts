@@ -42,6 +42,12 @@ describe('resolveWithin', () => {
     assert.equal(resolveWithin(root, '/%E0%A4%A'), null);
     assert.equal(resolveWithin(root, '/index.html%00.js'), null);
   });
+
+  // A separator on Windows, a plain character on Linux: refused on both.
+  test('refuses backslashes even where they would stay inside the root', () => {
+    assert.equal(resolveWithin(root, '/assets%5capp.js'), null);
+    assert.equal(resolveWithin(root, '/assets\\app.js'), null);
+  });
 });
 
 describe('the standalone server', () => {

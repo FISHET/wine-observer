@@ -32,7 +32,10 @@ export function resolveWithin(root: string, urlPath: string): string | null {
   } catch {
     return null;
   }
-  if (decoded.includes('\0')) return null;
+  // A backslash is a separator on Windows but a plain character on Linux, so
+  // "/..\secret" climbs out on one and names a file on the other. No asset
+  // has one in its name, so refuse it everywhere and behave the same on both.
+  if (decoded.includes('\0') || decoded.includes('\\')) return null;
 
   const base = resolve(root);
   const target = resolve(join(base, decoded));
