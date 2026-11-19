@@ -77,6 +77,21 @@ export function ConsumedPage() {
               </ul>
             </details>
           )}
+          {page.unmappedRegions.length > 0 && (
+            <details className="notice">
+              <summary>
+                {page.unmappedRegions.length}{' '}
+                {page.unmappedRegions.length === 1 ? 'region is' : 'regions are'} not grouped yet, so{' '}
+                {page.unmappedRegions.length === 1 ? 'it counts' : 'they count'} as recorded. Add{' '}
+                {page.unmappedRegions.length === 1 ? 'it' : 'them'} to <code>data/regions.json</code>.
+              </summary>
+              <ul>
+                {page.unmappedRegions.map((region) => (
+                  <li key={region}>{region}</li>
+                ))}
+              </ul>
+            </details>
+          )}
           <DataTable
             rows={page.wines}
             columns={consumedColumns}

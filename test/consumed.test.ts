@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test, { describe } from 'node:test';
 
 import { columns } from '../src/columns.ts';
-import { buildConsumed, consumedTotals, sourceLabel, unmappedStyles } from '../src/consumed.ts';
+import { buildConsumed, consumedTotals, sourceLabel, unmappedRegions, unmappedStyles } from '../src/consumed.ts';
 import { asDate, consumedColumns } from '../src/consumedColumns.ts';
 import type { Entry } from '../src/notes.ts';
 import { sortRows } from '../src/table.ts';
@@ -84,6 +84,35 @@ describe('buildConsumed', () => {
     const [line] = buildConsumed([], [checkIn({})], styles);
     assert.equal(line!.grape, 'Zinfandel');
     assert.equal(line!.vivinoStyle, 'Californian Zinfandel', 'the original is kept');
+  });
+
+  test('groups regions through the table, from both apps', () => {
+    const regions = new Map([['Southern Rhône', 'Southern Rhône'], ['Gigondas', 'Southern Rhône']]);
+    const lines = buildConsumed(
+      [entry({ region: 'Rhône', subRegion: 'Southern Rhône', appellation: 'Vacqueyras' })],
+      [checkIn({ producer: 'Saint Cosme', name: 'Gigondas', wine: 'Saint Cosme Gigondas', region: 'Gigondas', country: 'France' })],
+      new Map(),
+      regions,
+    );
+    assert.deepEqual(lines.map((l) => [l.regionGroup, l.regionMapped]), [
+      ['Southern Rhône', true],
+      ['Southern Rhône', true],
+    ]);
+  });
+
+  test('lists the regions still to group, most bottles first', () => {
+    const lines = buildConsumed(
+      [],
+      [
+        checkIn({ region: 'Paso Robles' }),
+        checkIn({ vintage: 2021, region: 'Lodi' }),
+        checkIn({ vintage: 2020, region: 'Lodi' }),
+        checkIn({ vintage: 2019, region: 'Napa Valley' }),
+      ],
+      new Map(),
+      new Map([['Napa Valley', 'Napa Valley']]),
+    );
+    assert.deepEqual(unmappedRegions(lines), ['Lodi (USA)', 'Paso Robles (USA)']);
   });
 
   test('lists the styles still to map, once each', () => {

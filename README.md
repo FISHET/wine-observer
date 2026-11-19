@@ -129,6 +129,20 @@ export just replaces it. Every row is a check-in, rated or not.
   not by wine, so a Blanc de Blancs Champagne still shows as Champagne Blend. Where
   CellarTracker also has the wine, its own grape wins.
 
+### Regions
+
+The two apps record regions at different depths. CellarTracker gives a region,
+a sub-region and an appellation ("Rhône", "Southern Rhône",
+"Châteauneuf-du-Pape"). Vivino gives one name, usually the appellation.
+**`data/regions.json`** maps any of those names to the region a wine should
+count under, such as `"Châteauneuf-du-Pape": "Southern Rhône"`. It's
+hand-maintained and committed, and it's re-read on each page load. Each wine is
+looked up by its most specific name first: the appellation, then the
+sub-region, then the region. A wine that isn't covered keeps its region as
+recorded, and `/consumed` lists those regions, most drunk first. The grouping
+feeds the home page's Favourites card. The tables still show each wine's region
+as recorded.
+
 ## Running on the home server
 
 `compose.yaml` runs the standalone server (`src/server.ts`), which serves the

@@ -1,4 +1,5 @@
 import { CellarValueCard } from './CellarValueCard.tsx';
+import { FavouritesCard } from './FavouritesCard.tsx';
 import { PageCard } from './PageCard.tsx';
 import { Link } from './router.tsx';
 import { useTitle } from './SyncedLayout.tsx';
@@ -28,6 +29,7 @@ export function HomePage() {
 
       <div className="dashboard">
         <CellarValueCard />
+        <FavouritesCard />
       </div>
     </main>
   );

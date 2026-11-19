@@ -25,12 +25,14 @@ import { join } from 'node:path';
 import {
   consumedTotals,
   mergeWines,
+  unmappedRegions,
   unmappedStyles,
   type ConsumedTotals,
   type ConsumedWine,
 } from './consumed.ts';
 import { buildTastings, scoresTotals, type ScoresTotals, type Tasting } from './scores.ts';
 import { DataFileError, GRAPE_STYLES_FILE, parseGrapeStyles } from './grapeStyles.ts';
+import { parseRegions, REGIONS_FILE } from './regions.ts';
 import { buildEntries, fillProducers, parseConsumed, parseNotes, parseProducers } from './notes.ts';
 import { parseVivino, VIVINO_FILE, WISHLIST_FILE } from './vivino.ts';
 import type { NightlyStatus } from './nightly.ts';
@@ -78,6 +80,8 @@ export type ConsumedData = SyncedPage & {
   vivinoWishlisted: number | null;
   /** Vivino styles still to add to data/grape-styles.json. */
   unmappedStyles: string[];
+  /** Regions not yet in data/regions.json, as "Region (Country)", most drunk first. */
+  unmappedRegions: string[];
 };
 
 export type ScoresData = SyncedPage & {
@@ -189,12 +193,14 @@ export function createApi(options: ApiOptions) {
 
   /** The style-to-grape table, read on each request so edits show without a restart. */
   async function readGrapeStyles(): Promise<Map<string, string>> {
-    try {
-      return parseGrapeStyles(await readFile(join(dataDir, GRAPE_STYLES_FILE), 'utf8'));
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return new Map();
-      throw error;
-    }
+    const json = await readOptional(GRAPE_STYLES_FILE);
+    return json === null ? new Map() : parseGrapeStyles(json);
+  }
+
+  /** The region-grouping table, read on each request like the grape table. */
+  async function readRegions(): Promise<Map<string, string>> {
+    const json = await readOptional(REGIONS_FILE);
+    return json === null ? new Map() : parseRegions(json);
   }
 
   /** Every wine drunk or tasted, from both apps, with the check-ins behind each. */
@@ -211,7 +217,7 @@ export function createApi(options: ApiOptions) {
     );
     const read = await readVivino();
     const vivino = read?.export ?? null;
-    const merged = mergeWines(entries, vivino?.checkIns ?? [], await readGrapeStyles());
+    const merged = mergeWines(entries, vivino?.checkIns ?? [], await readGrapeStyles(), await readRegions());
     return { tables, vivino, hasWishlist: read?.hasWishlist ?? false, merged };
   }
 
@@ -226,6 +232,7 @@ export function createApi(options: ApiOptions) {
       vivinoUnidentified: vivino?.unidentified ?? 0,
       vivinoWishlisted: vivino && hasWishlist ? vivino.wishlisted : null,
       unmappedStyles: unmappedStyles(wines),
+      unmappedRegions: unmappedRegions(wines),
     };
   }
 

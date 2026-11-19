@@ -10,6 +10,7 @@
  * hide one.
  */
 import { MATCH_THRESHOLD, nameMatch } from './match.ts';
+import { groupRegion } from './regions.ts';
 import type { Entry } from './notes.ts';
 import type { VivinoCheckIn } from './vivino.ts';
 import { wineName } from './wine.ts';
@@ -39,6 +40,14 @@ export type ConsumedWine = {
    * grapeStyles.ts); if they're equal, it hasn't been mapped yet.
    */
   vivinoStyle: string | null;
+  /**
+   * The region to count the wine under, from data/regions.json (see
+   * regions.ts): "Southern Rhône" for a Châteauneuf-du-Pape. The region as
+   * recorded when the table doesn't cover it.
+   */
+  regionGroup: string | null;
+  /** Whether data/regions.json gave regionGroup. */
+  regionMapped: boolean;
   /** Check-ins per app. */
   counts: Record<Source, number>;
   /**
@@ -112,8 +121,9 @@ export function buildConsumed(
   entries: readonly Entry[],
   checkIns: readonly VivinoCheckIn[],
   grapeStyles: ReadonlyMap<string, string> = new Map(),
+  regions: ReadonlyMap<string, string> = new Map(),
 ): ConsumedWine[] {
-  return mergeWines(entries, checkIns, grapeStyles).map((merged) => merged.line);
+  return mergeWines(entries, checkIns, grapeStyles, regions).map((merged) => merged.line);
 }
 
 /** One wine per line, from both apps, keeping each line's check-ins. */
@@ -121,6 +131,7 @@ export function mergeWines(
   entries: readonly Entry[],
   checkIns: readonly VivinoCheckIn[],
   grapeStyles: ReadonlyMap<string, string> = new Map(),
+  regions: ReadonlyMap<string, string> = new Map(),
 ): MergedWine[] {
   const cellarTracker = groupBy(entries, (e) => e.wineId, (e) => e.date);
   const vivino = groupBy(
@@ -179,6 +190,7 @@ export function mergeWines(
       region: first.region,
       subRegion: first.subRegion,
       appellation: first.appellation,
+      ...groupRegion(first, regions),
       // CellarTracker's grape where it has one; Vivino's style otherwise.
       ...(first.grape !== null
         ? { grape: first.grape, vivinoStyle: null }
@@ -210,6 +222,7 @@ export function mergeWines(
       region: first.region,
       subRegion: null,
       appellation: null,
+      ...groupRegion({ region: first.region, subRegion: null, appellation: null }, regions),
       ...styleGrape(first.wineStyle, grapeStyles),
       counts: { CellarTracker: 0, Vivino: group.items.length },
       bottles: group.items.length,
@@ -245,6 +258,20 @@ export function consumedTotals(lines: readonly ConsumedWine[]): ConsumedTotals {
 export function sourceLabel(line: ConsumedWine): string {
   if (line.counts.CellarTracker > 0 && line.counts.Vivino > 0) return 'Both';
   return line.counts.CellarTracker > 0 ? 'CellarTracker' : 'Vivino';
+}
+
+/**
+ * Regions not in data/regions.json, as "Region (Country)", most bottles
+ * first: the ones worth adding to the table soonest.
+ */
+export function unmappedRegions(lines: readonly ConsumedWine[]): string[] {
+  const bottles = new Map<string, number>();
+  for (const line of lines) {
+    if (line.regionMapped || !line.region) continue;
+    const name = line.country ? `${line.region} (${line.country})` : line.region;
+    bottles.set(name, (bottles.get(name) ?? 0) + line.bottles);
+  }
+  return [...bottles].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([name]) => name);
 }
 
 /** Vivino styles shown as they are because the table doesn't map them yet. */
