@@ -10,8 +10,8 @@ import { runNightly, scheduleNightly, type Schedule } from './nightly.ts';
 import { serveStatic } from './static.ts';
 import { createSyncer, credentialsFromEnv, filePath, lastSyncedAt } from './sync.ts';
 
-/** List is the stock; Consumed and Notes feed the notes page. */
-export const NIGHTLY_TABLES: readonly Table[] = ['List', 'Notes', 'Consumed'];
+/** List is the stock; Consumed, Notes and Purchase feed the consumed page. */
+export const NIGHTLY_TABLES: readonly Table[] = ['List', 'Notes', 'Consumed', 'Purchase'];
 
 export type ServerOptions = {
   dataDir: string;

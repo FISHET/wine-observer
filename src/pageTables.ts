@@ -5,4 +5,5 @@
 import type { Table } from './cellartracker.ts';
 
 export const CELLAR_TABLES: readonly Table[] = ['List'];
-export const NOTES_TABLES: readonly Table[] = ['Consumed', 'Notes'];
+/** Purchase only supplies producers: Consumed has no Producer column. */
+export const CONSUMED_TABLES: readonly Table[] = ['Consumed', 'Notes', 'Purchase'];

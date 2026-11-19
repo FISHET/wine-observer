@@ -1,0 +1,60 @@
+import type { ConsumedData } from '../api.ts';
+import { consumedColumns } from '../consumedColumns.ts';
+import type { ConsumedTotals } from '../consumed.ts';
+import { CONSUMED_TABLES } from '../pageTables.ts';
+import { DataTable } from './DataTable.tsx';
+import { SyncedLayout } from './SyncedLayout.tsx';
+import { useSynced } from './useSynced.ts';
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
+
+function summarise(totals: ConsumedTotals, vivinoCheckIns: number | null): string {
+  const parts = [plural(totals.wines, 'wine'), plural(totals.bottles, 'bottle')];
+  if (vivinoCheckIns !== null) parts.push(`${totals.inBoth} in both CellarTracker and Vivino`);
+  return parts.join(' · ');
+}
+
+export function ConsumedPage() {
+  const state = useSynced<ConsumedData>('/api/consumed', '/api/consumed/sync');
+  const page = state.page;
+
+  return (
+    <SyncedLayout
+      title="Consumed"
+      tables={CONSUMED_TABLES}
+      state={state}
+      summary={page && page.wines.length > 0 ? summarise(page.totals, page.vivinoCheckIns) : null}
+      empty={
+        <>
+          Nothing consumed yet. Hit <strong>Sync</strong> to pull it from CellarTracker, and save a
+          Vivino export as <code>data/vivino.csv</code> to include it.
+        </>
+      }
+    >
+      {page && page.wines.length > 0 && (
+        <>
+          {page.vivinoCheckIns === null && (
+            <p className="notice">
+              No Vivino export found. Save Vivino&rsquo;s full wine list as{' '}
+              <code>data/vivino.csv</code> to include it.
+            </p>
+          )}
+          {page.vivinoUnidentified > 0 && (
+            <p className="notice">
+              {page.vivinoUnidentified === 1
+                ? '1 Vivino check-in is'
+                : `${page.vivinoUnidentified} Vivino check-ins are`}{' '}
+              left out because they don&rsquo;t name a wine: label scans Vivino never identified.
+            </p>
+          )}
+          <DataTable
+            rows={page.wines}
+            columns={consumedColumns}
+            rowKey={(w) => w.key}
+            initialSort={{ key: 'lastDate', direction: 'desc' }}
+          />
+        </>
+      )}
+    </SyncedLayout>
+  );
+}

@@ -1,6 +1,6 @@
 import { CellarPage } from './CellarPage.tsx';
+import { ConsumedPage } from './ConsumedPage.tsx';
 import { HomePage, NotFoundPage } from './HomePage.tsx';
-import { NotesPage } from './NotesPage.tsx';
 import { usePath } from './router.tsx';
 
 export function App() {
@@ -9,8 +9,8 @@ export function App() {
       return <HomePage />;
     case '/cellar':
       return <CellarPage />;
-    case '/notes':
-      return <NotesPage />;
+    case '/consumed':
+      return <ConsumedPage />;
     default:
       return <NotFoundPage />;
   }

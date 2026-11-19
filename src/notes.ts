@@ -18,10 +18,17 @@ export type Source = 'CellarTracker';
 export type WineInfo = {
   /** iWine: identifies the wine and vintage. */
   wineId: string;
-  /** The full name, producer included; Consumed has no Producer column. */
+  /** The full name, producer included. */
   wine: string;
   /** Inverted for sorting: "Batailley, Château". */
   sortWine: string;
+  /**
+   * Empty when the table doesn't say: Consumed has no Producer column, so it
+   * is filled in from Notes and Purchase with fillProducers.
+   */
+  producer: string;
+  /** Inverted for sorting, like the cellar's SortProducer: "Batailley, Château". */
+  sortProducer: string;
   vintage: number | null;
   isNonVintage: boolean;
   style: string;
@@ -120,14 +127,32 @@ function flag(row: Row, column: string): boolean | null {
   return null;
 }
 
+/**
+ * The producer in sorting form. Only the List table has SortProducer, but
+ * every table's SortWine starts with the producer inverted:
+ * "Larrivet-Haut-Brion, Château Domaine de Larrivet-Haut-Brion". So take as
+ * much of SortWine as the producer's length, and keep it only if it holds the
+ * same words; otherwise fall back to the producer as written.
+ */
+export function sortProducerOf(producer: string, sortWine: string): string {
+  if (!producer) return '';
+  const candidate = sortWine.slice(0, producer.length + 1).trim();
+  const bag = (s: string) => s.replace(/,/g, ' ').split(/\s+/).filter(Boolean).sort().join(' ');
+  return candidate.includes(',') && bag(candidate) === bag(producer) ? candidate : producer;
+}
+
 export function toWineInfo(row: Row): WineInfo {
   const rawVintage = number(row, 'Vintage');
   const isNonVintage = rawVintage === NON_VINTAGE;
+  const sortWine = (row['SortWine'] ?? row['Wine'] ?? '').trim();
+  const producer = (row['Producer'] ?? '').trim();
 
   return {
     wineId: (row['iWine'] ?? '').trim(),
     wine: (row['Wine'] ?? '').trim(),
-    sortWine: (row['SortWine'] ?? row['Wine'] ?? '').trim(),
+    sortWine,
+    producer,
+    sortProducer: sortProducerOf(producer, sortWine),
     vintage: isNonVintage ? null : rawVintage,
     isNonVintage,
     style: (row['Type'] ?? '').trim(),
@@ -179,6 +204,26 @@ export const parseConsumed = (csv: string): ConsumedBottle[] => parseCsv(csv).ma
 
 export const parseNotes = (csv: string): TastingNote[] => parseCsv(csv).map(toNote);
 
+/** iWine -> producer, from any table that has a Producer column. */
+export function parseProducers(csv: string): Map<string, string> {
+  const producers = new Map<string, string>();
+  for (const row of parseCsv(csv)) {
+    const wineId = (row['iWine'] ?? '').trim();
+    const producer = (row['Producer'] ?? '').trim();
+    if (wineId && producer) producers.set(wineId, producer);
+  }
+  return producers;
+}
+
+/** Fills in a missing producer from the lookup, leaving any already known. */
+export function fillProducers<T extends WineInfo>(items: readonly T[], producers: ReadonlyMap<string, string>): T[] {
+  return items.map((item) => {
+    if (item.producer) return item;
+    const producer = producers.get(item.wineId) ?? '';
+    return { ...item, producer, sortProducer: sortProducerOf(producer, item.sortWine) };
+  });
+}
+
 /**
  * How long after the bottle a note may be dated and still be matched to it.
  * Notes often get written up the next morning.
@@ -225,8 +270,8 @@ export function matchNotes(
 }
 
 function wineInfo(from: WineInfo): WineInfo {
-  const { wineId, wine, sortWine, vintage, isNonVintage, style, colour, country, region, subRegion, appellation, grape } = from;
-  return { wineId, wine, sortWine, vintage, isNonVintage, style, colour, country, region, subRegion, appellation, grape };
+  const { wineId, wine, sortWine, producer, sortProducer, vintage, isNonVintage, style, colour, country, region, subRegion, appellation, grape } = from;
+  return { wineId, wine, sortWine, producer, sortProducer, vintage, isNonVintage, style, colour, country, region, subRegion, appellation, grape };
 }
 
 /**

@@ -19,14 +19,6 @@ export { EMPTY };
 
 export const columns: Column<Wine>[] = [
   {
-    key: 'wine',
-    label: 'Wine',
-    align: 'left',
-    wrap: true,
-    sortValue: (w) => w.wine,
-    render: (w) => w.wine,
-  },
-  {
     key: 'producer',
     label: 'Producer',
     align: 'left',
@@ -34,6 +26,16 @@ export const columns: Column<Wine>[] = [
     // under B rather than under C with every other château.
     sortValue: (w) => w.sortProducer,
     render: (w) => w.producer,
+  },
+  {
+    key: 'wine',
+    label: 'Wine',
+    align: 'left',
+    wrap: true,
+    // The producer has its own column, so it isn't repeated here.
+    sortValue: (w) => w.name,
+    render: (w) => w.name,
+    title: (w) => (w.wine !== w.name ? w.wine : undefined),
   },
   {
     key: 'vintage',

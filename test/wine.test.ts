@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test, { describe } from 'node:test';
 
 import { columns, sortWines, EMPTY } from '../src/columns.ts';
-import { parseCellar, parseScore, totals, type Wine } from '../src/wine.ts';
+import { parseCellar, parseScore, totals, type Wine, wineName } from '../src/wine.ts';
 
 const FIELDS = [
   'iWine', 'Quantity', 'Pending', 'Size', 'Price', 'Valuation', 'Vintage', 'Wine',
@@ -197,5 +197,25 @@ describe('rendering', () => {
     assert.equal(column('paid').render(wine), EMPTY);
     assert.equal(column('drinkFrom').render(wine), EMPTY);
     assert.equal(column('myScore').render(wine), EMPTY);
+  });
+});
+
+describe('wineName', () => {
+  test('drops the producer CellarTracker puts in front', () => {
+    assert.equal(
+      wineName('Château Larrivet-Haut-Brion Domaine de Larrivet-Haut-Brion', 'Château Larrivet-Haut-Brion'),
+      'Domaine de Larrivet-Haut-Brion',
+    );
+    assert.equal(wineName('Ridge Lytton Springs', 'ridge'), 'Lytton Springs', 'ignoring case');
+  });
+
+  test('falls back to the appellation for a wine named after its producer', () => {
+    assert.equal(wineName('Château Batailley', 'Château Batailley', 'Pauillac'), 'Pauillac');
+    assert.equal(wineName('Château Batailley', 'Château Batailley'), 'Château Batailley', 'with no fallback');
+  });
+
+  test('leaves a name that does not start with the producer alone', () => {
+    assert.equal(wineName('Lytton Springs', 'Ridge'), 'Lytton Springs');
+    assert.equal(wineName('Lytton Springs', ''), 'Lytton Springs');
   });
 });

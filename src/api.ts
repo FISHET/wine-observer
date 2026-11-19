@@ -8,8 +8,9 @@
  *   GET  /api/cellar      the parsed cellar, when it was last synced, and the
  *                         nightly sync's status (null under the dev server)
  *   POST /api/sync        pull the cellar (List) from CellarTracker
- *   GET  /api/notes       every tasting note and every bottle consumed
- *   POST /api/notes/sync  pull Consumed and Notes from CellarTracker
+ *   GET  /api/consumed       every wine drunk or tasted, from CellarTracker and
+ *                            the Vivino export (data/vivino.csv) if present
+ *   POST /api/consumed/sync  pull Consumed, Notes and Purchase from CellarTracker
  *
  * Either sync takes ?force=1 to ignore the freshness limit.
  */
@@ -17,9 +18,13 @@ import { readFile } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 
 import { CellarTrackerError, type Credentials, type Table } from './cellartracker.ts';
-import { buildEntries, notesTotals, parseConsumed, parseNotes, type Entry, type NotesTotals } from './notes.ts';
+import { join } from 'node:path';
+
+import { buildConsumed, consumedTotals, type ConsumedTotals, type ConsumedWine } from './consumed.ts';
+import { buildEntries, fillProducers, parseConsumed, parseNotes, parseProducers } from './notes.ts';
+import { parseVivino, VIVINO_FILE } from './vivino.ts';
 import type { NightlyStatus } from './nightly.ts';
-import { CELLAR_TABLES, NOTES_TABLES } from './pageTables.ts';
+import { CELLAR_TABLES, CONSUMED_TABLES } from './pageTables.ts';
 import {
   createSyncer,
   credentialsFromEnv,
@@ -49,9 +54,13 @@ export type Cellar = SyncedPage & {
   totals: CellarTotals;
 };
 
-export type NotesData = SyncedPage & {
-  entries: Entry[];
-  totals: NotesTotals;
+export type ConsumedData = SyncedPage & {
+  wines: ConsumedWine[];
+  totals: ConsumedTotals;
+  /** Check-ins read from the Vivino export, or null when there is none. */
+  vivinoCheckIns: number | null;
+  /** Vivino rows skipped because they don't say which wine it was. */
+  vivinoUnidentified: number;
 };
 
 export type OutcomeBody = { status: 'synced'; records: number } | { status: 'skipped'; ageMs: number };
@@ -131,14 +140,36 @@ export function createApi(options: ApiOptions) {
     return { ...freshness(tables), wines, totals: totals(wines) };
   }
 
-  async function readNotes(): Promise<NotesData> {
-    const tables = await readTables(NOTES_TABLES);
-    const [consumed, notes] = tables;
+  /** The Vivino export, read on each request: it's small, and replacing it needs no restart. */
+  async function readVivino() {
+    try {
+      return parseVivino(await readFile(join(dataDir, VIVINO_FILE), 'utf8'));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw error;
+    }
+  }
+
+  async function readConsumed(): Promise<ConsumedData> {
+    const tables = await readTables(CONSUMED_TABLES);
+    const [consumed, notes, purchases] = tables;
+    const producers = new Map([
+      ...(purchases?.csv ? parseProducers(purchases.csv) : []),
+      ...(notes?.csv ? parseProducers(notes.csv) : []),
+    ]);
     const entries = buildEntries(
-      consumed?.csv ? parseConsumed(consumed.csv) : [],
+      fillProducers(consumed?.csv ? parseConsumed(consumed.csv) : [], producers),
       notes?.csv ? parseNotes(notes.csv) : [],
     );
-    return { ...freshness(tables), entries, totals: notesTotals(entries) };
+    const vivino = await readVivino();
+    const wines = buildConsumed(entries, vivino?.checkIns ?? []);
+    return {
+      ...freshness(tables),
+      wines,
+      totals: consumedTotals(wines),
+      vivinoCheckIns: vivino?.checkIns.length ?? null,
+      vivinoUnidentified: vivino?.unidentified ?? 0,
+    };
   }
 
   /** One table at a time, so a failure doesn't leave a second fetch running. */
@@ -167,12 +198,12 @@ export function createApi(options: ApiOptions) {
           return send(res, 200, body);
         }
 
-        case 'GET /api/notes':
-          return send(res, 200, await readNotes());
+        case 'GET /api/consumed':
+          return send(res, 200, await readConsumed());
 
-        case 'POST /api/notes/sync': {
-          const outcome = await syncTables(NOTES_TABLES, force);
-          const body: SyncResponse<NotesData> = { ...(await readNotes()), outcome };
+        case 'POST /api/consumed/sync': {
+          const outcome = await syncTables(CONSUMED_TABLES, force);
+          const body: SyncResponse<ConsumedData> = { ...(await readConsumed()), outcome };
           return send(res, 200, body);
         }
 

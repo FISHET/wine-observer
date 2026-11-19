@@ -4,17 +4,18 @@ import test, { describe } from 'node:test';
 import {
   buildEntries,
   daysBetween,
+  fillProducers,
   matchNotes,
   notesTotals,
   parseConsumed,
   parseDate,
   parseNotes,
+  parseProducers,
+  sortProducerOf,
   type ConsumedBottle,
   type TastingNote,
   type WineInfo,
 } from '../src/notes.ts';
-import { asDate, notesColumns } from '../src/notesColumns.ts';
-import { sortRows } from '../src/table.ts';
 
 const wineColumns =
   '"iWine","Vintage","Wine","SortWine","Type","Color","MasterVarietal","Country","Region","SubRegion","Appellation"';
@@ -34,6 +35,8 @@ const wine: WineInfo = {
   wineId: '100',
   wine: 'Wine',
   sortWine: 'Wine',
+  producer: '',
+  sortProducer: '',
   vintage: 2020,
   isNonVintage: false,
   style: 'Red',
@@ -213,32 +216,37 @@ describe('buildEntries', () => {
   });
 });
 
-describe('notes columns', () => {
-  const column = (key: string) => notesColumns.find((c) => c.key === key)!;
-  const entries = buildEntries(
-    [
-      bottle({ id: 'old', date: '2026-01-02' }),
-      bottle({ id: 'none', date: null }),
-      bottle({ id: 'new', date: '2026-11-15' }),
-    ],
-    [note({ id: 'tasting', wineId: '999', date: '2026-06-01', score: { value: 93, text: '93' } })],
-  );
-
-  test('show dates the British way', () => {
-    assert.equal(asDate('2026-11-15'), '15 Nov 2026');
-    assert.equal(asDate(null), '–');
-  });
-
-  test('sort most recent first, undated last, notes among bottles', () => {
-    assert.deepEqual(
-      sortRows(entries, column('date'), 'desc').map((e) => e.key),
-      ['ct-bottle-new', 'ct-note-tasting', 'ct-bottle-old', 'ct-bottle-none'],
+describe('producers', () => {
+  test('finds the sorting form at the start of SortWine', () => {
+    assert.equal(
+      sortProducerOf('Château Larrivet-Haut-Brion', 'Larrivet-Haut-Brion, Château Domaine de Larrivet-Haut-Brion'),
+      'Larrivet-Haut-Brion, Château',
     );
+    assert.equal(sortProducerOf('M. Chapoutier', 'Chapoutier, M. Côtes du Rhône Belleruche'), 'Chapoutier, M.');
   });
 
-  test('say where a note with no bottle came from', () => {
-    const tasting = entries.find((e) => e.key === 'ct-note-tasting')!;
-    assert.equal(column('how').render(tasting), 'Not from the cellar');
-    assert.equal(column('score').render(tasting), '93');
+  test('keeps the producer as written when SortWine is not inverted', () => {
+    assert.equal(sortProducerOf('Marks & Spencer', 'Marks & Spencer Côtes du Rhône'), 'Marks & Spencer');
+    assert.equal(sortProducerOf('Ridge', 'Lytton Springs, Ridge'), 'Ridge', 'different words: not a match');
+    assert.equal(sortProducerOf('', 'Anything'), '');
+  });
+
+  test('fills in a bottle missing its producer from another table', () => {
+    const producers = parseProducers('iWine,Producer\n100,Château Larrivet-Haut-Brion\n');
+    const [filled, unknown] = fillProducers(
+      [
+        bottle({ wineId: '100', sortWine: 'Larrivet-Haut-Brion, Château Domaine de Larrivet-Haut-Brion' }),
+        bottle({ wineId: '999' }),
+      ],
+      producers,
+    );
+    assert.equal(filled!.producer, 'Château Larrivet-Haut-Brion');
+    assert.equal(filled!.sortProducer, 'Larrivet-Haut-Brion, Château');
+    assert.equal(unknown!.producer, '');
+  });
+
+  test('keeps a producer the row already had', () => {
+    const [kept] = fillProducers([bottle({ producer: 'Ridge' })], new Map([['100', 'Other']]));
+    assert.equal(kept!.producer, 'Ridge');
   });
 });

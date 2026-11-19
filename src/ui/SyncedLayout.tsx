@@ -3,6 +3,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import type { SyncedPage } from '../api.ts';
 import type { Table } from '../cellartracker.ts';
 import { outstandingFailures } from '../failures.ts';
+import { pageTitle } from '../pageTitle.ts';
 import { duration, timeAgo } from '../time.ts';
 import { Link } from './router.tsx';
 import type { SyncedState } from './useSynced.ts';
@@ -16,10 +17,11 @@ function useTicker(): void {
   }, []);
 }
 
-export function useTitle(title: string): void {
+/** Sets the browser tab's title; null for the home page. See pageTitle. */
+export function useTitle(page: string | null): void {
   useEffect(() => {
-    document.title = title === 'Cellar' ? title : `${title} · Cellar`;
-  }, [title]);
+    document.title = pageTitle(page);
+  }, [page]);
 }
 
 type Props<Page extends SyncedPage> = {

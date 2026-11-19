@@ -3,11 +3,11 @@ import { useTitle } from './SyncedLayout.tsx';
 
 const PAGES = [
   { to: '/cellar', title: 'Cellar', blurb: 'Every wine in stock, with drinking windows and scores.' },
-  { to: '/notes', title: 'Notes', blurb: 'Bottles drunk, with the tasting notes written for them.' },
+  { to: '/consumed', title: 'Consumed', blurb: 'Every wine drunk or tasted, from CellarTracker and Vivino.' },
 ];
 
 export function HomePage() {
-  useTitle('Cellar');
+  useTitle(null);
 
   return (
     <main>

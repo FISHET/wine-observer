@@ -9,7 +9,7 @@ import {
   combineOutcomes,
   createApi,
   type Cellar,
-  type NotesData,
+  type ConsumedData,
   type SyncResponse,
 } from '../src/api.ts';
 import { filePath } from '../src/sync.ts';
@@ -152,12 +152,24 @@ describe('POST /api/sync', () => {
 const consumedCsv =
   'iConsumed,iWine,ConsumedYear,ConsumedMonth,ConsumedDay,ShortType,iNote,Vintage,Wine\n' +
   '1,100,2026,11,15,Drank,500,2016,Château Larrivet-Haut-Brion\n' +
-  '2,200,2026,9,26,Drank,0,2022,Château de Beaucastel\n';
+  '2,200,2026,9,26,Drank,0,2022,Château de Beaucastel Châteauneuf-du-Pape\n';
 
 const notesCsv =
-  'iNote,iWine,TastingDate,Rating,TastingNotes\n' +
-  '500,100,15/11/2026,82,Thin.\n' +
-  '501,200,27/09/2026,93,Written up the next morning.\n';
+  'iNote,iWine,TastingDate,Rating,TastingNotes,Vintage,Wine,Producer\n' +
+  '500,100,15/11/2026,82,Thin.,2016,Château Larrivet-Haut-Brion,Château Larrivet-Haut-Brion\n' +
+  '501,200,27/09/2026,93,Written up the next morning.,2022,Château de Beaucastel Châteauneuf-du-Pape,Château de Beaucastel\n' +
+  '502,300,07/11/2026,85,A tasting.,2019,Psi Ribera del Duero,Psi\n';
+
+const purchasesCsv =
+  'iWine,Producer,Wine\n' +
+  '100,Château Larrivet-Haut-Brion,Château Larrivet-Haut-Brion\n' +
+  '200,Château de Beaucastel,Château de Beaucastel Châteauneuf-du-Pape\n';
+
+const vivinoCsv =
+  'Winery,Wine name,Vintage,Region,Country,Your rating,Scan date,Wine type\n' +
+  'Château de Beaucastel,Châteauneuf-du-Pape,2022,Châteauneuf-du-Pape,France,4.5,,Red Wine\n' +
+  'Dominus,Othello,2019,Napa Valley,United States,4.3,,Red Wine\n' +
+  'Dominus,Othello,2019,Napa Valley,United States,4.1,,Red Wine\n';
 
 /** Answers each CellarTracker table with its own CSV, latin-1 encoded like the real thing. */
 function tableFetch(tables: Record<string, string>, asked: string[] = []) {
@@ -169,78 +181,98 @@ function tableFetch(tables: Record<string, string>, asked: string[] = []) {
   }) as unknown as typeof fetch;
 }
 
-describe('GET /api/notes', () => {
-  test('returns bottles joined to their notes', async () => {
+describe('GET /api/consumed', () => {
+  test('lists each wine once, counting its check-ins', async () => {
     const dataDir = await newDataDir();
     await writeFile(filePath(dataDir, 'Consumed'), consumedCsv, 'utf8');
     await writeFile(filePath(dataDir, 'Notes'), notesCsv, 'utf8');
 
-    const { status, body } = await call(createApi({ dataDir }), 'GET', '/api/notes');
-    const page = body as NotesData;
+    const { status, body } = await call(createApi({ dataDir }), 'GET', '/api/consumed');
+    const page = body as ConsumedData;
 
     assert.equal(status, 200);
-    assert.deepEqual(page.totals, { notes: 2, bottles: 2, notesWithoutBottle: 0, bottlesWithoutNote: 0 });
-    assert.equal(page.entries[0]!.note?.text, 'Thin.');
-    assert.equal(page.entries[1]!.note?.id, '501', 'matched by wine and date');
+    // Two bottles with their notes, and one note with no bottle.
+    assert.deepEqual(
+      page.wines.map((w) => [w.wine, w.bottles]).sort(),
+      [
+        ['Château Larrivet-Haut-Brion', 1],
+        ['Château de Beaucastel Châteauneuf-du-Pape', 1],
+        ['Psi Ribera del Duero', 1],
+      ],
+    );
+    assert.equal(page.vivinoCheckIns, null, 'no Vivino export saved');
+    assert.equal(
+      page.wines.find((w) => w.wine === 'Château Larrivet-Haut-Brion')!.producer,
+      'Château Larrivet-Haut-Brion',
+      'from the note, as Consumed has no Producer column',
+    );
     assert.ok(page.syncedAt.Consumed && page.syncedAt.Notes);
   });
 
-  test('shows bottles without notes when Notes has never synced', async () => {
+  test('merges the Vivino export in', async () => {
     const dataDir = await newDataDir();
     await writeFile(filePath(dataDir, 'Consumed'), consumedCsv, 'utf8');
+    await writeFile(filePath(dataDir, 'Notes'), notesCsv, 'utf8');
+    await writeFile(join(dataDir, 'vivino.csv'), vivinoCsv, 'utf8');
 
-    const { body } = await call(createApi({ dataDir }), 'GET', '/api/notes');
-    const page = body as NotesData;
+    const { body } = await call(createApi({ dataDir }), 'GET', '/api/consumed');
+    const page = body as ConsumedData;
+    const beaucastel = page.wines.find((w) => w.wine === 'Château de Beaucastel Châteauneuf-du-Pape')!;
+    const othello = page.wines.find((w) => w.wine === 'Dominus Othello')!;
 
-    assert.equal(page.entries.length, 2);
-    assert.ok(page.lastSyncedAt);
-    assert.equal(page.syncedAt.Notes, null);
+    assert.equal(page.vivinoCheckIns, 3);
+    assert.equal(page.vivinoUnidentified, 0);
+    assert.deepEqual(beaucastel.counts, { CellarTracker: 1, Vivino: 1 });
+    assert.equal(beaucastel.bottles, 1, 'one bottle, logged in both apps');
+    assert.equal(othello.bottles, 2, 'two check-ins in Vivino');
+    assert.equal(page.totals.inBoth, 1);
   });
 
-  test('lists notes on their own when Consumed has never synced', async () => {
+  test('takes producers from the Purchase table, which Consumed lacks', async () => {
     const dataDir = await newDataDir();
-    await writeFile(filePath(dataDir, 'Notes'), notesCsv, 'utf8');
+    await writeFile(filePath(dataDir, 'Consumed'), consumedCsv, 'utf8');
+    await writeFile(filePath(dataDir, 'Purchase'), purchasesCsv, 'utf8');
 
-    const { body } = await call(createApi({ dataDir }), 'GET', '/api/notes');
-    const page = body as NotesData;
+    const { body } = await call(createApi({ dataDir }), 'GET', '/api/consumed');
+    const larrivet = (body as ConsumedData).wines.find((w) => w.wine === 'Château Larrivet-Haut-Brion')!;
 
-    assert.equal(page.entries.length, 2);
-    assert.ok(page.entries.every((e) => e.bottle === null));
-    assert.ok(page.lastSyncedAt);
+    assert.equal(larrivet.producer, 'Château Larrivet-Haut-Brion');
   });
 
   test('is empty rather than broken before the first sync', async () => {
     const dataDir = await newDataDir();
 
-    const { body } = await call(createApi({ dataDir }), 'GET', '/api/notes');
+    const { body } = await call(createApi({ dataDir }), 'GET', '/api/consumed');
 
-    assert.deepEqual((body as NotesData).entries, []);
-    assert.equal((body as NotesData).lastSyncedAt, null);
+    assert.deepEqual((body as ConsumedData).wines, []);
+    assert.equal((body as ConsumedData).lastSyncedAt, null);
   });
 });
 
-describe('POST /api/notes/sync', () => {
-  test('pulls Consumed and Notes, and returns the joined page', async () => {
+describe('POST /api/consumed/sync', () => {
+  test('pulls Consumed, Notes and Purchase, and returns the page', async () => {
     const dataDir = await newDataDir();
     const asked: string[] = [];
     const api = createApi({
       dataDir,
-      fetchImpl: tableFetch({ Consumed: consumedCsv, Notes: notesCsv }, asked),
+      fetchImpl: tableFetch({ Consumed: consumedCsv, Notes: notesCsv, Purchase: purchasesCsv }, asked),
       credentials: testCredentials,
     });
 
-    const { status, body } = await call(api, 'POST', '/api/notes/sync');
-    const response = body as SyncResponse<NotesData>;
+    const { status, body } = await call(api, 'POST', '/api/consumed/sync');
+    const response = body as SyncResponse<ConsumedData>;
 
     assert.equal(status, 200);
-    assert.deepEqual(asked, ['Consumed', 'Notes']);
-    assert.deepEqual(response.outcome, { status: 'synced', records: 4 });
-    assert.equal(response.totals.notes, 2);
+    assert.deepEqual(asked, ['Consumed', 'Notes', 'Purchase']);
+    assert.deepEqual(response.outcome, { status: 'synced', records: 7 });
+    assert.equal(response.totals.wines, 3);
+    assert.ok(response.wines.every((w) => w.producer), 'every wine has a producer');
   });
 
-  test('still fetches a table that is stale when the other is fresh', async () => {
+  test('still fetches a table that is stale when the others are fresh', async () => {
     const dataDir = await newDataDir();
     await writeFile(filePath(dataDir, 'Notes'), notesCsv, 'utf8');
+    await writeFile(filePath(dataDir, 'Purchase'), purchasesCsv, 'utf8');
     const asked: string[] = [];
     const api = createApi({
       dataDir,
@@ -248,10 +280,26 @@ describe('POST /api/notes/sync', () => {
       credentials: testCredentials,
     });
 
-    const { body } = await call(api, 'POST', '/api/notes/sync');
+    const { body } = await call(api, 'POST', '/api/consumed/sync');
 
     assert.deepEqual(asked, ['Consumed']);
-    assert.deepEqual((body as SyncResponse<NotesData>).outcome, { status: 'synced', records: 2 });
+    assert.deepEqual((body as SyncResponse<ConsumedData>).outcome, { status: 'synced', records: 2 });
+  });
+
+  test('picks up a replaced Vivino export, even when CellarTracker is skipped', async () => {
+    const dataDir = await newDataDir();
+    await writeFile(filePath(dataDir, 'Consumed'), consumedCsv, 'utf8');
+    await writeFile(filePath(dataDir, 'Notes'), notesCsv, 'utf8');
+    await writeFile(filePath(dataDir, 'Purchase'), purchasesCsv, 'utf8');
+    const api = createApi({ dataDir, fetchImpl: tableFetch({}), credentials: testCredentials });
+
+    const before = (await call(api, 'POST', '/api/consumed/sync')).body as SyncResponse<ConsumedData>;
+    await writeFile(join(dataDir, 'vivino.csv'), vivinoCsv, 'utf8');
+    const after = (await call(api, 'POST', '/api/consumed/sync')).body as SyncResponse<ConsumedData>;
+
+    assert.equal(after.outcome.status, 'skipped', 'CellarTracker was synced moments ago');
+    assert.equal(before.vivinoCheckIns, null);
+    assert.equal(after.vivinoCheckIns, 3, 'the new file was read');
   });
 
   test('does not touch the cellar', async () => {
@@ -263,7 +311,7 @@ describe('POST /api/notes/sync', () => {
       credentials: testCredentials,
     });
 
-    await call(api, 'POST', '/api/notes/sync');
+    await call(api, 'POST', '/api/consumed/sync');
 
     assert.ok(!asked.includes('List'));
   });

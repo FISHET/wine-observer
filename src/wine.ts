@@ -25,7 +25,10 @@ export type Score = {
 export type Wine = {
   /** iWine: stable across vintages of the same wine. */
   id: string;
+  /** Producer and name together, as CellarTracker writes it. */
   wine: string;
+  /** The wine's own name, without the producer: see wineName. */
+  name: string;
   producer: string;
   /** Producer with the name inverted, for sorting: "Batailley, Château". */
   sortProducer: string;
@@ -82,6 +85,20 @@ export function money(row: Row, column: string): number | null {
   return value === null || value === 0 ? null : value;
 }
 
+/**
+ * The wine's own name, without the producer CellarTracker puts in front:
+ * "Château Larrivet-Haut-Brion Domaine de Larrivet-Haut-Brion" from
+ * Château Larrivet-Haut-Brion is "Domaine de Larrivet-Haut-Brion".
+ *
+ * When the wine is named after the producer and nothing is left (Château
+ * Batailley), the fallback is used, typically the appellation: "Pauillac".
+ */
+export function wineName(full: string, producer: string, fallback?: string | null): string {
+  const startsWithProducer = producer !== '' && full.toLowerCase().startsWith(producer.toLowerCase());
+  const rest = startsWithProducer ? full.slice(producer.length).replace(/^[\s,–-]+/, '').trim() : full;
+  return rest || fallback || full;
+}
+
 export function parseScore(raw: string | null | undefined): Score | null {
   const value = (raw ?? '').trim();
   if (value === '') return null;
@@ -106,6 +123,11 @@ export function toWine(row: Row): Wine {
   return {
     id: (row['iWine'] ?? '').trim(),
     wine: (row['Wine'] ?? '').trim(),
+    name: wineName(
+      (row['Wine'] ?? '').trim(),
+      (row['Producer'] ?? '').trim(),
+      text(row, 'Appellation') ?? text(row, 'Region'),
+    ),
     producer: (row['Producer'] ?? '').trim(),
     sortProducer: (row['SortProducer'] ?? row['Producer'] ?? '').trim(),
     vintage: isNonVintage ? null : rawVintage,
