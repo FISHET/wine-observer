@@ -291,6 +291,68 @@ a {
   font-size: 13.5px;
 }
 
+/*
+ * The home page's dashboard: cards for stats, lists and charts. As many
+ * columns as fit at 18rem or wider; sizes per card can come later.
+ */
+.dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.card {
+  padding: 1rem 1.1rem 1.1rem;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.card-title {
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.card-message {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 2.5rem;
+}
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.stat-label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Proportional figures: tabular digits look loose at this size. */
+.stat-value {
+  color: var(--ink);
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.stat-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
 /* The footer sits at the bottom of the window even when the page is short. */
 #root {
   display: flex;

@@ -1,3 +1,4 @@
+import { CellarValueCard } from './CellarValueCard.tsx';
 import { PageCard } from './PageCard.tsx';
 import { Link } from './router.tsx';
 import { useTitle } from './SyncedLayout.tsx';
@@ -24,6 +25,10 @@ export function HomePage() {
           <PageCard key={page.to} {...page} />
         ))}
       </nav>
+
+      <div className="dashboard">
+        <CellarValueCard />
+      </div>
     </main>
   );
 }

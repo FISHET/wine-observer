@@ -165,6 +165,13 @@ export type CellarTotals = {
   wines: number;
   bottles: number;
   pending: number;
+  /**
+   * What the bottles in stock are worth: each wine's valuation times its
+   * bottles. Pending bottles aren't counted, as they aren't held yet.
+   */
+  value: number;
+  /** Bottles in stock with no valuation, so left out of `value`. */
+  unvaluedBottles: number;
 };
 
 export function totals(wines: Wine[]): CellarTotals {
@@ -172,5 +179,7 @@ export function totals(wines: Wine[]): CellarTotals {
     wines: wines.length,
     bottles: wines.reduce((sum, w) => sum + w.inStock, 0),
     pending: wines.reduce((sum, w) => sum + w.pending, 0),
+    value: wines.reduce((sum, w) => sum + (w.value ?? 0) * w.inStock, 0),
+    unvaluedBottles: wines.reduce((sum, w) => sum + (w.value === null ? w.inStock : 0), 0),
   };
 }

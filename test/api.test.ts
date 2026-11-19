@@ -68,7 +68,8 @@ describe('GET /api/cellar', () => {
 
     assert.equal(status, 200);
     assert.equal(cellar.wines.length, 2);
-    assert.deepEqual(cellar.totals, { wines: 2, bottles: 7, pending: 0 });
+    // The fixture has no Valuation column, so nothing is valued.
+    assert.deepEqual(cellar.totals, { wines: 2, bottles: 7, pending: 0, value: 0, unvaluedBottles: 7 });
     assert.equal(cellar.wines[0]!.wine, 'Château Batailley');
     assert.ok(cellar.lastSyncedAt, 'should report when it was synced');
   });
