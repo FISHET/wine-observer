@@ -27,6 +27,12 @@ export type VivinoCheckIn = {
   style: string;
   country: string;
   region: string | null;
+  /**
+   * Vivino's "Regional wine style", such as "Napa Valley Bordeaux Blend" or
+   * "Southern Rhône Red". Vivino has no grape field; this is the nearest to
+   * CellarTracker's, so it stands in for the grape until wines are mapped.
+   */
+  wineStyle: string | null;
   /** ISO date. Vivino only records it for some check-ins. */
   date: string | null;
   /** Your rating as Vivino gives it, out of 5. */
@@ -86,6 +92,7 @@ export function toCheckIn(row: Row): VivinoCheckIn {
     style: STYLES[style] ?? style,
     country: COUNTRIES[country] ?? country,
     region: text(row, 'Region'),
+    wineStyle: text(row, 'Regional wine style'),
     date: parseDate(row['Scan date']),
     stars: hasStars ? stars : null,
     score: hasStars ? { value: starsToPoints(stars), text: String(starsToPoints(stars)) } : null,

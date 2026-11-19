@@ -20,7 +20,14 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { CellarTrackerError, type Credentials, type Table } from './cellartracker.ts';
 import { join } from 'node:path';
 
-import { buildConsumed, consumedTotals, type ConsumedTotals, type ConsumedWine } from './consumed.ts';
+import {
+  buildConsumed,
+  consumedTotals,
+  unmappedStyles,
+  type ConsumedTotals,
+  type ConsumedWine,
+} from './consumed.ts';
+import { DataFileError, GRAPE_STYLES_FILE, parseGrapeStyles } from './grapeStyles.ts';
 import { buildEntries, fillProducers, parseConsumed, parseNotes, parseProducers } from './notes.ts';
 import { parseVivino, VIVINO_FILE } from './vivino.ts';
 import type { NightlyStatus } from './nightly.ts';
@@ -61,6 +68,8 @@ export type ConsumedData = SyncedPage & {
   vivinoCheckIns: number | null;
   /** Vivino rows skipped because they don't say which wine it was. */
   vivinoUnidentified: number;
+  /** Vivino styles still to add to data/grape-styles.json. */
+  unmappedStyles: string[];
 };
 
 export type OutcomeBody = { status: 'synced'; records: number } | { status: 'skipped'; ageMs: number };
@@ -150,6 +159,16 @@ export function createApi(options: ApiOptions) {
     }
   }
 
+  /** The style-to-grape table, read on each request so edits show without a restart. */
+  async function readGrapeStyles(): Promise<Map<string, string>> {
+    try {
+      return parseGrapeStyles(await readFile(join(dataDir, GRAPE_STYLES_FILE), 'utf8'));
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return new Map();
+      throw error;
+    }
+  }
+
   async function readConsumed(): Promise<ConsumedData> {
     const tables = await readTables(CONSUMED_TABLES);
     const [consumed, notes, purchases] = tables;
@@ -162,13 +181,14 @@ export function createApi(options: ApiOptions) {
       notes?.csv ? parseNotes(notes.csv) : [],
     );
     const vivino = await readVivino();
-    const wines = buildConsumed(entries, vivino?.checkIns ?? []);
+    const wines = buildConsumed(entries, vivino?.checkIns ?? [], await readGrapeStyles());
     return {
       ...freshness(tables),
       wines,
       totals: consumedTotals(wines),
       vivinoCheckIns: vivino?.checkIns.length ?? null,
       vivinoUnidentified: vivino?.unidentified ?? 0,
+      unmappedStyles: unmappedStyles(wines),
     };
   }
 
@@ -215,9 +235,14 @@ export function createApi(options: ApiOptions) {
     handle().catch((error: unknown) => {
       // The credentials and CellarTracker's own refusals are the two failures
       // worth showing verbatim: both tell the user exactly what to go and fix.
+      // A hand-edited data file that won't parse is the third: its message
+      // names the file and what's wrong with it.
       const expected =
-        error instanceof MissingCredentialsError || error instanceof CellarTrackerError;
-      const status = error instanceof MissingCredentialsError ? 400 : expected ? 502 : 500;
+        error instanceof MissingCredentialsError ||
+        error instanceof CellarTrackerError ||
+        error instanceof DataFileError;
+      const status =
+        error instanceof MissingCredentialsError ? 400 : error instanceof DataFileError ? 500 : expected ? 502 : 500;
 
       if (!expected) console.error(error);
 

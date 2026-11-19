@@ -166,10 +166,10 @@ const purchasesCsv =
   '200,Château de Beaucastel,Château de Beaucastel Châteauneuf-du-Pape\n';
 
 const vivinoCsv =
-  'Winery,Wine name,Vintage,Region,Country,Your rating,Scan date,Wine type\n' +
-  'Château de Beaucastel,Châteauneuf-du-Pape,2022,Châteauneuf-du-Pape,France,4.5,,Red Wine\n' +
-  'Dominus,Othello,2019,Napa Valley,United States,4.3,,Red Wine\n' +
-  'Dominus,Othello,2019,Napa Valley,United States,4.1,,Red Wine\n';
+  'Winery,Wine name,Vintage,Region,Country,Your rating,Scan date,Wine type,Regional wine style\n' +
+  'Château de Beaucastel,Châteauneuf-du-Pape,2022,Châteauneuf-du-Pape,France,4.5,,Red Wine,Southern Rhône Red\n' +
+  'Dominus,Othello,2019,Napa Valley,United States,4.3,,Red Wine,Napa Valley Bordeaux Blend\n' +
+  'Dominus,Othello,2019,Napa Valley,United States,4.1,,Red Wine,Napa Valley Bordeaux Blend\n';
 
 /** Answers each CellarTracker table with its own CSV, latin-1 encoded like the real thing. */
 function tableFetch(tables: Record<string, string>, asked: string[] = []) {
@@ -237,6 +237,28 @@ describe('GET /api/consumed', () => {
     const larrivet = (body as ConsumedData).wines.find((w) => w.wine === 'Château Larrivet-Haut-Brion')!;
 
     assert.equal(larrivet.producer, 'Château Larrivet-Haut-Brion');
+  });
+
+  test('maps Vivino styles to grapes from data/grape-styles.json', async () => {
+    const dataDir = await newDataDir();
+    await writeFile(join(dataDir, 'vivino.csv'), vivinoCsv, 'utf8');
+    await writeFile(join(dataDir, 'grape-styles.json'), '{ "Napa Valley Bordeaux Blend": "Red Bordeaux Blend" }', 'utf8');
+
+    const { body } = await call(createApi({ dataDir }), 'GET', '/api/consumed');
+    const page = body as ConsumedData;
+
+    assert.equal(page.wines.find((w) => w.wine === 'Dominus Othello')!.grape, 'Red Bordeaux Blend');
+    assert.deepEqual(page.unmappedStyles, ['Southern Rhône Red']);
+  });
+
+  test('says what is wrong with a broken grape-styles.json', async () => {
+    const dataDir = await newDataDir();
+    await writeFile(join(dataDir, 'grape-styles.json'), '{ "French Champagne": }', 'utf8');
+
+    const { status, body } = await call(createApi({ dataDir }), 'GET', '/api/consumed');
+
+    assert.equal(status, 500);
+    assert.match(body.error, /grape-styles\.json is not valid JSON/);
   });
 
   test('is empty rather than broken before the first sync', async () => {

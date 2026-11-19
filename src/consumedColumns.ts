@@ -74,6 +74,14 @@ export const consumedColumns: Column<ConsumedWine>[] = [
     align: 'left',
     sortValue: (w) => w.grape,
     render: (w) => w.grape ?? EMPTY,
+    // Vivino has no grape field, so its regional style stands in, mapped
+    // to a grape by data/grape-styles.json where possible.
+    title: (w) => {
+      if (w.vivinoStyle === null) return undefined;
+      return w.grape === w.vivinoStyle
+        ? "Vivino's regional wine style, not mapped to a grape yet"
+        : `Mapped from Vivino's "${w.vivinoStyle}"`;
+    },
   },
   {
     key: 'bottles',

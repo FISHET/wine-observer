@@ -39,6 +39,7 @@ describe('parseVivino', () => {
     assert.equal(batailley!.vintage, 2022);
     assert.equal(batailley!.style, 'Red');
     assert.equal(batailley!.region, 'Pauillac');
+    assert.equal(batailley!.wineStyle, 'Bordeaux Pauillac');
     assert.equal(batailley!.review, 'Needs time, imo.');
   });
 

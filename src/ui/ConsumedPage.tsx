@@ -47,6 +47,20 @@ export function ConsumedPage() {
               left out because they don&rsquo;t name a wine: label scans Vivino never identified.
             </p>
           )}
+          {page.unmappedStyles.length > 0 && (
+            <details className="notice">
+              <summary>
+                {page.unmappedStyles.length} Vivino{' '}
+                {page.unmappedStyles.length === 1 ? 'style has' : 'styles have'} no grape yet. Add{' '}
+                {page.unmappedStyles.length === 1 ? 'it' : 'them'} to <code>data/grape-styles.json</code>.
+              </summary>
+              <ul>
+                {page.unmappedStyles.map((style) => (
+                  <li key={style}>{style}</li>
+                ))}
+              </ul>
+            </details>
+          )}
           <DataTable
             rows={page.wines}
             columns={consumedColumns}

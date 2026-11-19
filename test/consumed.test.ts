@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test, { describe } from 'node:test';
 
 import { columns } from '../src/columns.ts';
-import { buildConsumed, consumedTotals, sourceLabel } from '../src/consumed.ts';
+import { buildConsumed, consumedTotals, sourceLabel, unmappedStyles } from '../src/consumed.ts';
 import { asDate, consumedColumns } from '../src/consumedColumns.ts';
 import type { Entry } from '../src/notes.ts';
 import { sortRows } from '../src/table.ts';
@@ -39,6 +39,7 @@ const checkIn = (overrides: Partial<VivinoCheckIn>): VivinoCheckIn => ({
   style: 'Red',
   country: 'USA',
   region: 'Dry Creek Valley',
+  wineStyle: 'Californian Zinfandel',
   date: null,
   stars: 4.2,
   score: { value: 92, text: '92' },
@@ -67,8 +68,35 @@ describe('buildConsumed', () => {
     assert.equal(line!.wine, 'Ridge Lytton Springs');
     assert.equal(line!.producer, 'Ridge');
     assert.equal(line!.name, 'Lytton Springs', 'the producer has its own column');
-    assert.equal(line!.grape, 'Zinfandel Blend');
+    assert.equal(line!.grape, 'Zinfandel Blend', "CellarTracker's grape wins");
+    assert.equal(line!.vivinoStyle, null);
     assert.equal(sourceLabel(line!), 'Both');
+  });
+
+  test("falls back to Vivino's style when CellarTracker has no grape", () => {
+    const [line] = buildConsumed([entry({ grape: null })], [checkIn({})]);
+    assert.equal(line!.grape, 'Californian Zinfandel');
+    assert.equal(line!.vivinoStyle, 'Californian Zinfandel');
+  });
+
+  test('maps a Vivino style to a grape through the table', () => {
+    const styles = new Map([['Californian Zinfandel', 'Zinfandel']]);
+    const [line] = buildConsumed([], [checkIn({})], styles);
+    assert.equal(line!.grape, 'Zinfandel');
+    assert.equal(line!.vivinoStyle, 'Californian Zinfandel', 'the original is kept');
+  });
+
+  test('lists the styles still to map, once each', () => {
+    const lines = buildConsumed(
+      [],
+      [
+        checkIn({}),
+        checkIn({ vintage: 2021 }),
+        checkIn({ producer: 'Bollinger', name: 'Rosé', wine: 'Bollinger Rosé', wineStyle: 'French Champagne' }),
+      ],
+      new Map([['French Champagne', 'Champagne Blend']]),
+    );
+    assert.deepEqual(unmappedStyles(lines), ['Californian Zinfandel']);
   });
 
   test('never merges across vintages', () => {
@@ -102,6 +130,8 @@ describe('buildConsumed', () => {
     assert.equal(line!.wine, 'Ridge Vineyards Lytton Springs');
     assert.equal(line!.producer, 'Ridge Vineyards', "Vivino's winery");
     assert.equal(line!.name, 'Lytton Springs', "Vivino's wine name");
+    assert.equal(line!.grape, 'Californian Zinfandel', "Vivino's regional style stands in");
+    assert.equal(line!.vivinoStyle, 'Californian Zinfandel');
     assert.equal(line!.isNonVintage, false);
     assert.equal(line!.lastDate, '2025-02-01');
     assert.equal(sourceLabel(line!), 'Vivino');

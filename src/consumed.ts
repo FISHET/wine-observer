@@ -33,6 +33,12 @@ export type ConsumedWine = {
   subRegion: string | null;
   appellation: string | null;
   grape: string | null;
+  /**
+   * Vivino's regional wine style, when the grape came from it rather than
+   * from CellarTracker. If grape differs, the style was mapped (see
+   * grapeStyles.ts); if they're equal, it hasn't been mapped yet.
+   */
+  vivinoStyle: string | null;
   /** Check-ins per app. */
   counts: Record<Source, number>;
   /**
@@ -71,7 +77,16 @@ const span = (dates: readonly string[]) => {
   return { firstDate: sorted[0] ?? null, lastDate: sorted.at(-1) ?? null };
 };
 
-export function buildConsumed(entries: readonly Entry[], checkIns: readonly VivinoCheckIn[]): ConsumedWine[] {
+/** The grape for a Vivino style: mapped if the table has it, else the style as it is. */
+function styleGrape(style: string | null, grapeStyles: ReadonlyMap<string, string>) {
+  return { grape: style ? (grapeStyles.get(style) ?? style) : null, vivinoStyle: style };
+}
+
+export function buildConsumed(
+  entries: readonly Entry[],
+  checkIns: readonly VivinoCheckIn[],
+  grapeStyles: ReadonlyMap<string, string> = new Map(),
+): ConsumedWine[] {
   const cellarTracker = groupBy(entries, (e) => e.wineId, (e) => e.date);
   const vivino = groupBy(
     checkIns,
@@ -129,7 +144,10 @@ export function buildConsumed(entries: readonly Entry[], checkIns: readonly Vivi
       region: first.region,
       subRegion: first.subRegion,
       appellation: first.appellation,
-      grape: first.grape,
+      // CellarTracker's grape where it has one; Vivino's style otherwise.
+      ...(first.grape !== null
+        ? { grape: first.grape, vivinoStyle: null }
+        : styleGrape(viv?.items[0]?.wineStyle ?? null, grapeStyles)),
       counts,
       bottles: Math.max(counts.CellarTracker, counts.Vivino),
       ...span([...ct.dates, ...(viv?.dates ?? [])]),
@@ -156,7 +174,7 @@ export function buildConsumed(entries: readonly Entry[], checkIns: readonly Vivi
       region: first.region,
       subRegion: null,
       appellation: null,
-      grape: null,
+      ...styleGrape(first.wineStyle, grapeStyles),
       counts: { CellarTracker: 0, Vivino: group.items.length },
       bottles: group.items.length,
       ...span(group.dates),
@@ -190,4 +208,10 @@ export function consumedTotals(lines: readonly ConsumedWine[]): ConsumedTotals {
 export function sourceLabel(line: ConsumedWine): string {
   if (line.counts.CellarTracker > 0 && line.counts.Vivino > 0) return 'Both';
   return line.counts.CellarTracker > 0 ? 'CellarTracker' : 'Vivino';
+}
+
+/** Vivino styles shown as they are because the table doesn't map them yet. */
+export function unmappedStyles(lines: readonly ConsumedWine[]): string[] {
+  const styles = lines.flatMap((l) => (l.vivinoStyle !== null && l.grape === l.vivinoStyle ? [l.vivinoStyle] : []));
+  return [...new Set(styles)].sort();
 }

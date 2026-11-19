@@ -94,6 +94,14 @@ export just replaces it. Every row is a check-in, rated or not.
   as **50 + 10 × stars** (4.0 → 90, 3.5 → 85), which matched the CellarTracker
   scores closely on wines rated in both. Doubling (× 20) read about six points
   low. Scores aren't shown yet; they're for the scores view.
+- **Grapes.** Vivino has no grape field, only a "Regional wine style" such as
+  "French Champagne". **`data/grape-styles.json`** maps each style to the grape
+  CellarTracker would use (`"French Champagne": "Champagne Blend"`). It's
+  hand-maintained and committed, and it's re-read on each page load. A style that
+  isn't in it is shown as it is, and the consumed page lists the ones still to
+  map. Hover a grape to see the style it came from. The mapping works by style,
+  not by wine, so a Blanc de Blancs Champagne still shows as Champagne Blend. Where
+  CellarTracker also has the wine, its own grape wins.
 
 ## Running on the home server
 
