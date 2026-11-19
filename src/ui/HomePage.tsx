@@ -13,7 +13,7 @@ export function HomePage() {
   return (
     <main>
       <header>
-        <h1>Cellar</h1>
+        <h1 className="wordmark">WineObserver</h1>
       </header>
 
       <ul className="pages">

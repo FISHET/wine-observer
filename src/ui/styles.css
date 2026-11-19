@@ -34,6 +34,19 @@ h1 {
   letter-spacing: -0.01em;
 }
 
+/*
+ * The home page's name. Instrument Serif has a single, regular weight, so no
+ * bold; larger, as a display serif reads small at the body's sizes. The
+ * fallback is any serif, should Google Fonts be unreachable.
+ */
+h1.wordmark {
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 2.5rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1.1;
+}
+
 .summary {
   margin: 0.25rem 0 0;
   color: var(--muted);
