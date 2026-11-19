@@ -11,6 +11,8 @@
  *   GET  /api/consumed       every wine drunk or tasted, from CellarTracker and
  *                            the Vivino export (data/vivino.csv) if present
  *   POST /api/consumed/sync  pull Consumed, Notes and Purchase from CellarTracker
+ *   GET  /api/scores         every tasting, one line each, from both apps
+ *   POST /api/scores/sync    pull the same tables as /api/consumed/sync
  *
  * Either sync takes ?force=1 to ignore the freshness limit.
  */
@@ -21,17 +23,18 @@ import { CellarTrackerError, type Credentials, type Table } from './cellartracke
 import { join } from 'node:path';
 
 import {
-  buildConsumed,
   consumedTotals,
+  mergeWines,
   unmappedStyles,
   type ConsumedTotals,
   type ConsumedWine,
 } from './consumed.ts';
+import { buildTastings, scoresTotals, type ScoresTotals, type Tasting } from './scores.ts';
 import { DataFileError, GRAPE_STYLES_FILE, parseGrapeStyles } from './grapeStyles.ts';
 import { buildEntries, fillProducers, parseConsumed, parseNotes, parseProducers } from './notes.ts';
-import { parseVivino, VIVINO_FILE } from './vivino.ts';
+import { parseVivino, VIVINO_FILE, WISHLIST_FILE } from './vivino.ts';
 import type { NightlyStatus } from './nightly.ts';
-import { CELLAR_TABLES, CONSUMED_TABLES } from './pageTables.ts';
+import { CELLAR_TABLES, CONSUMED_TABLES, SCORES_TABLES } from './pageTables.ts';
 import {
   createSyncer,
   credentialsFromEnv,
@@ -68,8 +71,22 @@ export type ConsumedData = SyncedPage & {
   vivinoCheckIns: number | null;
   /** Vivino rows skipped because they don't say which wine it was. */
   vivinoUnidentified: number;
+  /**
+   * Vivino rows dropped as wishlist entries, or null when there's no
+   * wishlist export to check against.
+   */
+  vivinoWishlisted: number | null;
   /** Vivino styles still to add to data/grape-styles.json. */
   unmappedStyles: string[];
+};
+
+export type ScoresData = SyncedPage & {
+  tastings: Tasting[];
+  totals: ScoresTotals;
+  /** Check-ins read from the Vivino export, or null when there is none. */
+  vivinoCheckIns: number | null;
+  /** Vivino check-ins left out because they have no rating and no review. */
+  vivinoUnrated: number;
 };
 
 export type OutcomeBody = { status: 'synced'; records: number } | { status: 'skipped'; ageMs: number };
@@ -149,14 +166,25 @@ export function createApi(options: ApiOptions) {
     return { ...freshness(tables), wines, totals: totals(wines) };
   }
 
-  /** The Vivino export, read on each request: it's small, and replacing it needs no restart. */
-  async function readVivino() {
+  /** A file in the data folder, or null when it isn't there. */
+  async function readOptional(name: string): Promise<string | null> {
     try {
-      return parseVivino(await readFile(join(dataDir, VIVINO_FILE), 'utf8'));
+      return await readFile(join(dataDir, name), 'utf8');
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
       throw error;
     }
+  }
+
+  /**
+   * The Vivino export, less the wishlist entries it mixes in, read on each
+   * request: it's small, and replacing it needs no restart.
+   */
+  async function readVivino() {
+    const csv = await readOptional(VIVINO_FILE);
+    if (csv === null) return null;
+    const wishlist = await readOptional(WISHLIST_FILE);
+    return { export: parseVivino(csv, wishlist), hasWishlist: wishlist !== null };
   }
 
   /** The style-to-grape table, read on each request so edits show without a restart. */
@@ -169,7 +197,8 @@ export function createApi(options: ApiOptions) {
     }
   }
 
-  async function readConsumed(): Promise<ConsumedData> {
+  /** Every wine drunk or tasted, from both apps, with the check-ins behind each. */
+  async function readMerged() {
     const tables = await readTables(CONSUMED_TABLES);
     const [consumed, notes, purchases] = tables;
     const producers = new Map([
@@ -180,15 +209,35 @@ export function createApi(options: ApiOptions) {
       fillProducers(consumed?.csv ? parseConsumed(consumed.csv) : [], producers),
       notes?.csv ? parseNotes(notes.csv) : [],
     );
-    const vivino = await readVivino();
-    const wines = buildConsumed(entries, vivino?.checkIns ?? [], await readGrapeStyles());
+    const read = await readVivino();
+    const vivino = read?.export ?? null;
+    const merged = mergeWines(entries, vivino?.checkIns ?? [], await readGrapeStyles());
+    return { tables, vivino, hasWishlist: read?.hasWishlist ?? false, merged };
+  }
+
+  async function readConsumed(): Promise<ConsumedData> {
+    const { tables, vivino, hasWishlist, merged } = await readMerged();
+    const wines = merged.map((m) => m.line);
     return {
       ...freshness(tables),
       wines,
       totals: consumedTotals(wines),
       vivinoCheckIns: vivino?.checkIns.length ?? null,
       vivinoUnidentified: vivino?.unidentified ?? 0,
+      vivinoWishlisted: vivino && hasWishlist ? vivino.wishlisted : null,
       unmappedStyles: unmappedStyles(wines),
+    };
+  }
+
+  async function readScores(): Promise<ScoresData> {
+    const { tables, vivino, merged } = await readMerged();
+    const tastings = buildTastings(merged);
+    return {
+      ...freshness(tables),
+      tastings,
+      totals: scoresTotals(tastings),
+      vivinoCheckIns: vivino?.checkIns.length ?? null,
+      vivinoUnrated: vivino?.checkIns.filter((c) => !c.score && !c.review).length ?? 0,
     };
   }
 
@@ -224,6 +273,15 @@ export function createApi(options: ApiOptions) {
         case 'POST /api/consumed/sync': {
           const outcome = await syncTables(CONSUMED_TABLES, force);
           const body: SyncResponse<ConsumedData> = { ...(await readConsumed()), outcome };
+          return send(res, 200, body);
+        }
+
+        case 'GET /api/scores':
+          return send(res, 200, await readScores());
+
+        case 'POST /api/scores/sync': {
+          const outcome = await syncTables(SCORES_TABLES, force);
+          const body: SyncResponse<ScoresData> = { ...(await readScores()), outcome };
           return send(res, 200, body);
         }
 

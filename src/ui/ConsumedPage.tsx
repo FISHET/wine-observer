@@ -47,6 +47,21 @@ export function ConsumedPage() {
               left out because they don&rsquo;t name a wine: label scans Vivino never identified.
             </p>
           )}
+          {page.vivinoCheckIns !== null && page.vivinoWishlisted === null && (
+            <p className="notice">
+              No Vivino wishlist export found. Vivino&rsquo;s full wine list includes wishlisted
+              wines, so save the wishlist as <code>data/wishlisted.csv</code> to leave them out.
+            </p>
+          )}
+          {page.vivinoWishlisted !== null && page.vivinoWishlisted > 0 && (
+            <p className="notice">
+              {page.vivinoWishlisted === 1
+                ? '1 Vivino row is'
+                : `${page.vivinoWishlisted} Vivino rows are`}{' '}
+              left out as wishlist entries: on <code>data/wishlisted.csv</code>, with no rating or
+              review.
+            </p>
+          )}
           {page.unmappedStyles.length > 0 && (
             <details className="notice">
               <summary>

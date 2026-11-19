@@ -34,6 +34,17 @@ export const asYear = (value: number | null) => (value === null ? EMPTY : String
 export const asScore = (score: Score | null) => (score === null ? EMPTY : score.text);
 export const scoreValue = (score: Score | null) => (score === null ? null : score.value);
 
+const dayMonthYear = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
+/** "15 Nov 2026" from "2026-11-15". */
+export const asDate = (iso: string | null) =>
+  iso === null ? EMPTY : dayMonthYear.format(new Date(`${iso}T00:00:00Z`));
+
 const collator = new Intl.Collator('en-GB', { sensitivity: 'base', numeric: true });
 
 /**

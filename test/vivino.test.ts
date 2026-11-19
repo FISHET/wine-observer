@@ -68,3 +68,43 @@ describe('parseVivino', () => {
     assert.equal(nyetimber!.country, 'United Kingdom');
   });
 });
+
+describe('dropping wishlist entries', () => {
+  // The wishlist export has the full list's columns plus a "Wishlisted date".
+  const wishHeader =
+    'Winery,Wine name,Vintage,Region,Country,Regional wine style,Average rating,Scan date,Scan/Review Location,Your rating,Your review,Personal Note,Wine type,Wishlisted date,Drinking Window,Link to wine,Label image\n';
+  const wishlist =
+    wishHeader +
+    'Two Hands,Holy Grail Shiraz,2019,Barossa Valley,Australia,Australian Barossa Valley Shiraz,4.4,,,,,,Red Wine,2025-11-28 18:40:54,,https://www.vivino.com/wines/166671932,\n' +
+    'Château Batailley,Pauillac (Grand Cru Classé),2022,Pauillac,France,Bordeaux Pauillac,4.2,,,,,,Red Wine,2025-01-01 10:00:00,,https://www.vivino.com/wines/171632071,\n' +
+    // No link: matched on winery, name and vintage instead.
+    'Nyetimber,Classic Cuvee Brut,,England,United Kingdom,English Sparkling,4.0,,,,,,Sparkling,2025-02-02 10:00:00,,,\n';
+  const holyGrail =
+    'Two Hands,Holy Grail Shiraz,2019,Barossa Valley,Australia,Australian Barossa Valley Shiraz,4.4,,,,,,Red Wine,,https://www.vivino.com/wines/166671932,\n';
+
+  test('drops an unrated, unreviewed row that is on the wishlist', () => {
+    const result = parseVivino(csv + holyGrail, wishlist);
+    assert.equal(result.wishlisted, 2, 'Holy Grail by link, Nyetimber by name');
+    assert.deepEqual(
+      result.checkIns.map((c) => c.producer),
+      ['Château Batailley', 'Cune (CVNE)', 'Dominus'],
+    );
+  });
+
+  test('keeps a wishlisted row that was rated or reviewed: that was a real tasting', () => {
+    const { checkIns } = parseVivino(csv, wishlist);
+    assert.ok(checkIns.some((c) => c.producer === 'Château Batailley'));
+  });
+
+  test('drops only one row per wishlist entry, so a real check-in survives', () => {
+    const result = parseVivino(header + holyGrail + holyGrail, wishlist);
+    assert.equal(result.wishlisted, 1);
+    assert.equal(result.checkIns.length, 1);
+  });
+
+  test('keeps everything without a wishlist', () => {
+    const result = parseVivino(csv + holyGrail);
+    assert.equal(result.wishlisted, 0);
+    assert.equal(result.checkIns.length, 5);
+  });
+});

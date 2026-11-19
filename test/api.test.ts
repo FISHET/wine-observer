@@ -10,6 +10,7 @@ import {
   createApi,
   type Cellar,
   type ConsumedData,
+  type ScoresData,
   type SyncResponse,
 } from '../src/api.ts';
 import { filePath } from '../src/sync.ts';
@@ -228,6 +229,27 @@ describe('GET /api/consumed', () => {
     assert.equal(page.totals.inBoth, 1);
   });
 
+  test('leaves out wishlist entries listed in data/wishlisted.csv', async () => {
+    const dataDir = await newDataDir();
+    const unrated = 'Two Hands,Holy Grail Shiraz,2019,Barossa Valley,Australia,,,Red Wine,Australian Shiraz\n';
+    await writeFile(join(dataDir, 'vivino.csv'), vivinoCsv + unrated, 'utf8');
+    const api = createApi({ dataDir });
+
+    const before = (await call(api, 'GET', '/api/consumed')).body as ConsumedData;
+    await writeFile(
+      join(dataDir, 'wishlisted.csv'),
+      'Winery,Wine name,Vintage,Wishlisted date\nTwo Hands,Holy Grail Shiraz,2019,2025-11-28 18:40:54\n',
+      'utf8',
+    );
+    const after = (await call(api, 'GET', '/api/consumed')).body as ConsumedData;
+
+    assert.equal(before.vivinoWishlisted, null, 'no wishlist to check against');
+    assert.ok(before.wines.some((w) => w.producer === 'Two Hands'));
+    assert.equal(after.vivinoWishlisted, 1);
+    assert.equal(after.vivinoCheckIns, 3);
+    assert.ok(!after.wines.some((w) => w.producer === 'Two Hands'));
+  });
+
   test('takes producers from the Purchase table, which Consumed lacks', async () => {
     const dataDir = await newDataDir();
     await writeFile(filePath(dataDir, 'Consumed'), consumedCsv, 'utf8');
@@ -268,6 +290,61 @@ describe('GET /api/consumed', () => {
 
     assert.deepEqual((body as ConsumedData).wines, []);
     assert.equal((body as ConsumedData).lastSyncedAt, null);
+  });
+});
+
+describe('GET /api/scores', () => {
+  test('lists every tasting from both apps, one line each', async () => {
+    const dataDir = await newDataDir();
+    await writeFile(filePath(dataDir, 'Consumed'), consumedCsv, 'utf8');
+    await writeFile(filePath(dataDir, 'Notes'), notesCsv, 'utf8');
+    await writeFile(join(dataDir, 'vivino.csv'), vivinoCsv, 'utf8');
+
+    const { status, body } = await call(createApi({ dataDir }), 'GET', '/api/scores');
+    const page = body as ScoresData;
+
+    assert.equal(status, 200);
+    // Three CellarTracker notes, three rated Vivino check-ins.
+    assert.deepEqual(
+      page.tastings.map((t) => [t.wine, t.source, t.score?.value]).sort(),
+      [
+        ['Château Larrivet-Haut-Brion', 'CellarTracker', 82],
+        ['Château de Beaucastel Châteauneuf-du-Pape', 'CellarTracker', 93],
+        ['Château de Beaucastel Châteauneuf-du-Pape', 'Vivino', 95],
+        ['Dominus Othello', 'Vivino', 91],
+        ['Dominus Othello', 'Vivino', 93],
+        ['Psi Ribera del Duero', 'CellarTracker', 85],
+      ],
+    );
+    assert.equal(page.totals.wines, 4);
+    assert.equal(page.totals.tastedMoreThanOnce, 2);
+    assert.equal(page.vivinoUnrated, 0);
+    assert.ok(page.syncedAt.Notes);
+  });
+
+  test('is empty rather than broken before the first sync', async () => {
+    const { body } = await call(createApi({ dataDir: await newDataDir() }), 'GET', '/api/scores');
+    assert.deepEqual((body as ScoresData).tastings, []);
+    assert.equal((body as ScoresData).vivinoCheckIns, null);
+  });
+});
+
+describe('POST /api/scores/sync', () => {
+  test('pulls the same tables as the consumed page', async () => {
+    const asked: string[] = [];
+    const api = createApi({
+      dataDir: await newDataDir(),
+      credentials: testCredentials,
+      fetchImpl: tableFetch({ Consumed: consumedCsv, Notes: notesCsv, Purchase: purchasesCsv }, asked),
+    });
+
+    const { status, body } = await call(api, 'POST', '/api/scores/sync');
+    const page = body as SyncResponse<ScoresData>;
+
+    assert.equal(status, 200);
+    assert.deepEqual(asked, ['Consumed', 'Notes', 'Purchase']);
+    assert.equal(page.outcome.status, 'synced');
+    assert.equal(page.tastings.length, 3);
   });
 });
 

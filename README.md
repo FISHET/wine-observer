@@ -52,13 +52,14 @@ Tables available: `List`, `Inventory`, `Notes`, `Purchase`, `Pending`, `Consumed
 | `/` | Links to the other pages |
 | `/cellar` | A sortable table of every wine in stock (the `List` table) |
 | `/consumed` | Every wine drunk or tasted, one line per wine and vintage, from CellarTracker and Vivino |
+| `/scores` | Every tasting, one line each, with its score and note, from CellarTracker and Vivino |
 
 Click any column heading to sort; click again to reverse it. Blanks always sort
 last, and NV wines sort apart from vintages rather than as the year 1001.
 
 Each page loads from a small API (`src/api.ts`) rather than bundling the CSV,
 so it builds without one. Before the first sync it says so; hit **Sync** in the
-header. **Sync** on `/consumed` pulls `Consumed`, `Notes` and `Purchase` (only for
+header. **Sync** on `/consumed` or `/scores` pulls `Consumed`, `Notes` and `Purchase` (only for
 producers: `Consumed` has no Producer column). A table
 synced within the last hour is skipped unless you choose **Sync anyway**,
 because CellarTracker ask that the export isn't hammered.
@@ -74,12 +75,32 @@ note written up the next morning doesn't count as a second bottle.
 Check-ins are then grouped into one line per wine and vintage, with a
 **Bottles** count.
 
+### What counts as a tasting
+
+`/scores` doesn't group by wine, because a wine tasted several times as it
+matures gets a different note and score each time. A tasting is a CellarTracker
+note, or a Vivino check-in with a rating or a review. A bare Vivino check-in
+only says the wine was drunk, so it counts on `/consumed` but isn't listed here.
+
+A tasting logged in both apps shows as two lines, one per app. Vivino rarely
+dates a check-in, so there's no safe way to tell which CellarTracker note it
+pairs with. Both lines share the wine's description, though: a Vivino tasting
+of a wine CellarTracker knows is described as CellarTracker describes it.
+
 ### Vivino
 
 Vivino has no API, so its history is a one-off load. In Vivino, export your
 data and save the full wine list as **`data/vivino.csv`**. It's git-ignored,
 it's mounted into the container, and it's re-read on each page load, so a newer
 export just replaces it. Every row is a check-in, rated or not.
+
+- **Wishlist.** Vivino's full wine list also includes wishlisted wines, and
+  there's no export of just the wines drunk. Save the wishlist export as
+  **`data/wishlisted.csv`** too. A row that's on the wishlist and has no rating
+  and no review is dropped. A rated or reviewed row is kept, because that was a
+  real tasting. Each wishlist entry drops at most one row. Rows are matched by
+  Vivino's wine link, or by winery, name and vintage when the link is missing.
+  Without the file nothing is dropped, and `/consumed` says so.
 
 - **Matching.** Vivino has no CellarTracker id, so a Vivino wine joins a
   CellarTracker line only when the vintages agree and the names match both ways
@@ -93,7 +114,7 @@ export just replaces it. Every row is a check-in, rated or not.
 - **Scores.** Vivino rates out of 5. Ratings are converted to the 100-point scale
   as **50 + 10 × stars** (4.0 → 90, 3.5 → 85), which matched the CellarTracker
   scores closely on wines rated in both. Doubling (× 20) read about six points
-  low. Scores aren't shown yet; they're for the scores view.
+  low. Hover a Vivino score on `/scores` to see the stars.
 - **Grapes.** Vivino has no grape field, only a "Regional wine style" such as
   "French Champagne". **`data/grape-styles.json`** maps each style to the grape
   CellarTracker would use (`"French Champagne": "Champagne Blend"`). It's

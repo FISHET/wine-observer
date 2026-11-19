@@ -109,12 +109,61 @@ export type VivinoExport = {
    * a scan date and a photo of the label.
    */
   unidentified: number;
+  /** Rows dropped as wishlist entries rather than wines drunk; see dropWishlisted. */
+  wishlisted: number;
 };
 
 const identified = (row: Row) => Boolean((row['Winery'] ?? '').trim() || (row['Wine name'] ?? '').trim());
 
-export function parseVivino(csv: string): VivinoExport {
+/**
+ * Vivino's wishlist export, saved as data/wishlisted.csv. Its rows have the
+ * same columns as the full wine list, plus a "Wishlisted date".
+ */
+export const WISHLIST_FILE = 'wishlisted.csv';
+
+/** Vivino's wine page is per vintage; the names are the fallback when it's missing. */
+function wineKeys(row: Row): string[] {
+  const link = (row['Link to wine'] ?? '').trim();
+  const names = ['Winery', 'Wine name', 'Vintage'].map((c) => (row[c] ?? '').trim().toLowerCase()).join('|');
+  return link ? [`link:${link}`, `name:${names}`] : [`name:${names}`];
+}
+
+const isRatedOrReviewed = (row: Row) => {
+  const stars = Number((row['Your rating'] ?? '').trim());
+  return (Number.isFinite(stars) && stars > 0) || (row['Your review'] ?? '').trim() !== '';
+};
+
+/**
+ * Vivino's "full wine list" includes wishlisted wines alongside the ones
+ * drunk, and there's no export of just the ones drunk. So a row is dropped
+ * when it's on the wishlist and has no rating and no review. A rated row is
+ * almost certainly a real tasting, so it stays. Each wishlist entry drops at
+ * most one row, so a real unrated check-in of the same wine survives.
+ */
+export function dropWishlisted(rows: readonly Row[], wishlist: readonly Row[]): { kept: Row[]; dropped: number } {
+  const pending = new Map<string, number>(); // key -> wishlist entry index
+  wishlist.forEach((entry, i) => {
+    for (const key of wineKeys(entry)) if (!pending.has(key)) pending.set(key, i);
+  });
+  const used = new Set<number>();
+
+  const kept = rows.filter((row) => {
+    if (isRatedOrReviewed(row)) return true;
+    const entry = wineKeys(row)
+      .map((key) => pending.get(key))
+      .find((i) => i !== undefined && !used.has(i));
+    if (entry === undefined) return true;
+    used.add(entry);
+    return false;
+  });
+
+  return { kept, dropped: rows.length - kept.length };
+}
+
+/** `wishlistCsv` is Vivino's wishlist export, or null when there isn't one. */
+export function parseVivino(csv: string, wishlistCsv: string | null = null): VivinoExport {
   const rows = parseCsv(csv);
-  const kept = rows.filter(identified);
-  return { checkIns: kept.map(toCheckIn), unidentified: rows.length - kept.length };
+  const { kept, dropped } = dropWishlisted(rows, wishlistCsv ? parseCsv(wishlistCsv) : []);
+  const named = kept.filter(identified);
+  return { checkIns: named.map(toCheckIn), unidentified: kept.length - named.length, wishlisted: dropped };
 }

@@ -4,6 +4,7 @@ import { useTitle } from './SyncedLayout.tsx';
 const PAGES = [
   { to: '/cellar', title: 'Cellar', blurb: 'Every wine in stock, with drinking windows and scores.' },
   { to: '/consumed', title: 'Consumed', blurb: 'Every wine drunk or tasted, from CellarTracker and Vivino.' },
+  { to: '/scores', title: 'Scores', blurb: 'Every tasting, with its score and note, from both apps.' },
 ];
 
 export function HomePage() {

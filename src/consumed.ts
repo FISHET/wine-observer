@@ -52,6 +52,25 @@ export type ConsumedWine = {
   lastDate: string | null;
 };
 
+/** What every wine table shows about the wine itself. */
+export type WineDescription = Pick<
+  ConsumedWine,
+  | 'name'
+  | 'wine'
+  | 'sortWine'
+  | 'producer'
+  | 'sortProducer'
+  | 'vintage'
+  | 'isNonVintage'
+  | 'style'
+  | 'country'
+  | 'region'
+  | 'subRegion'
+  | 'appellation'
+  | 'grape'
+  | 'vivinoStyle'
+>;
+
 type Group<T> = { items: T[]; dates: string[] };
 
 function groupBy<T>(items: readonly T[], keyOf: (item: T) => string, dateOf: (item: T) => string | null) {
@@ -82,11 +101,27 @@ function styleGrape(style: string | null, grapeStyles: ReadonlyMap<string, strin
   return { grape: style ? (grapeStyles.get(style) ?? style) : null, vivinoStyle: style };
 }
 
+/** A consumed line with the check-ins behind it, so other pages can list them one by one. */
+export type MergedWine = {
+  line: ConsumedWine;
+  entries: Entry[];
+  checkIns: VivinoCheckIn[];
+};
+
 export function buildConsumed(
   entries: readonly Entry[],
   checkIns: readonly VivinoCheckIn[],
   grapeStyles: ReadonlyMap<string, string> = new Map(),
 ): ConsumedWine[] {
+  return mergeWines(entries, checkIns, grapeStyles).map((merged) => merged.line);
+}
+
+/** One wine per line, from both apps, keeping each line's check-ins. */
+export function mergeWines(
+  entries: readonly Entry[],
+  checkIns: readonly VivinoCheckIn[],
+  grapeStyles: ReadonlyMap<string, string> = new Map(),
+): MergedWine[] {
   const cellarTracker = groupBy(entries, (e) => e.wineId, (e) => e.date);
   const vivino = groupBy(
     checkIns,
@@ -119,7 +154,7 @@ export function buildConsumed(
     taken.add(vivinoKey);
   }
 
-  const lines: ConsumedWine[] = [];
+  const merged: MergedWine[] = [];
 
   for (const [wineId, ct] of cellarTracker) {
     const first = ct.items.find((e) => e.bottle) ?? ct.items[0]!;
@@ -130,7 +165,7 @@ export function buildConsumed(
     const known = ct.items.find((e) => e.producer);
     const producer = known?.producer ?? viv?.items[0]?.producer ?? '';
 
-    lines.push({
+    const line: ConsumedWine = {
       key: `ct-${wineId}`,
       name: wineName(first.wine, producer, first.appellation ?? first.region),
       wine: first.wine,
@@ -151,14 +186,15 @@ export function buildConsumed(
       counts,
       bottles: Math.max(counts.CellarTracker, counts.Vivino),
       ...span([...ct.dates, ...(viv?.dates ?? [])]),
-    });
+    };
+    merged.push({ line, entries: ct.items, checkIns: viv?.items ?? [] });
   }
 
   for (const [vivinoKey, group] of vivino) {
     if (taken.has(vivinoKey)) continue;
     const first = group.items[0]!;
 
-    lines.push({
+    const line: ConsumedWine = {
       key: `vivino-${vivinoKey}`,
       // Vivino already keeps the name apart from the winery.
       name: first.name || first.region || first.wine,
@@ -178,10 +214,11 @@ export function buildConsumed(
       counts: { CellarTracker: 0, Vivino: group.items.length },
       bottles: group.items.length,
       ...span(group.dates),
-    });
+    };
+    merged.push({ line, entries: [], checkIns: group.items });
   }
 
-  return lines;
+  return merged;
 }
 
 export type ConsumedTotals = {
