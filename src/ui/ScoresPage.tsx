@@ -36,13 +36,13 @@ export function ScoresPage() {
       {page && page.tastings.length > 0 && (
         <>
           {page.vivinoCheckIns === null && (
-            <Notice>
+            <Notice remember={`scores-no-vivino@${page.lastSyncedAt}`}>
               No Vivino export found. Save Vivino&rsquo;s full wine list as{' '}
               <code>data/vivino.csv</code> to include its ratings.
             </Notice>
           )}
           {page.vivinoUnrated > 0 && (
-            <Notice>
+            <Notice remember={`scores-vivino-unrated@${page.lastSyncedAt}`}>
               {page.vivinoUnrated === 1
                 ? '1 Vivino check-in has'
                 : `${page.vivinoUnrated} Vivino check-ins have`}{' '}

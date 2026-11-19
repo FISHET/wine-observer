@@ -97,7 +97,7 @@ export function SyncedLayout<Page extends SyncedPage>({
       )}
 
       {failures.length > 0 && lastRun && (
-        <Notice key={`nightly-${lastRun.startedAt}`} error>
+        <Notice key={`nightly-${lastRun.startedAt}`} remember={`nightly-failure@${lastRun.startedAt}`} error>
           The automatic sync {timeAgo(new Date(lastRun.startedAt))} failed for{' '}
           {failures.map((f) => f.table).join(' and ')}: {failures[0]!.error}
         </Notice>

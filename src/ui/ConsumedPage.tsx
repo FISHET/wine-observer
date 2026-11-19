@@ -35,13 +35,13 @@ export function ConsumedPage() {
       {page && page.wines.length > 0 && (
         <>
           {page.vivinoCheckIns === null && (
-            <Notice>
+            <Notice remember={`consumed-no-vivino@${page.lastSyncedAt}`}>
               No Vivino export found. Save Vivino&rsquo;s full wine list as{' '}
               <code>data/vivino.csv</code> to include it.
             </Notice>
           )}
           {page.vivinoUnidentified > 0 && (
-            <Notice>
+            <Notice remember={`consumed-vivino-unidentified@${page.lastSyncedAt}`}>
               {page.vivinoUnidentified === 1
                 ? '1 Vivino check-in is'
                 : `${page.vivinoUnidentified} Vivino check-ins are`}{' '}
@@ -49,13 +49,13 @@ export function ConsumedPage() {
             </Notice>
           )}
           {page.vivinoCheckIns !== null && page.vivinoWishlisted === null && (
-            <Notice>
+            <Notice remember={`consumed-no-wishlist@${page.lastSyncedAt}`}>
               No Vivino wishlist export found. Vivino&rsquo;s full wine list includes wishlisted
               wines, so save the wishlist as <code>data/wishlisted.csv</code> to leave them out.
             </Notice>
           )}
           {page.vivinoWishlisted !== null && page.vivinoWishlisted > 0 && (
-            <Notice>
+            <Notice remember={`consumed-wishlisted@${page.lastSyncedAt}`}>
               {page.vivinoWishlisted === 1
                 ? '1 Vivino row is'
                 : `${page.vivinoWishlisted} Vivino rows are`}{' '}
