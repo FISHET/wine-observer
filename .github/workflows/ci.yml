@@ -1,0 +1,62 @@
+# Typecheck, test and build on pull requests to main, and on main itself once
+# one is merged. Branch pushes don't trigger it, or a PR would run twice.
+#
+#   app     typecheck, unit tests, then the Vite build, kept as the
+#           `dist` artefact on the run
+#   docker  builds the container image the home server runs, to prove the
+#           Dockerfile still works; nothing is pushed anywhere
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# A newer push to the same branch supersedes a run still going.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      # The same Node as the Dockerfile; it runs the TypeScript directly.
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
+
+  docker:
+    needs: app
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          tags: wine-observer:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

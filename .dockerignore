@@ -1,0 +1,10 @@
+node_modules
+dist
+data
+docs
+.env
+.env.local
+.git
+.idea
+.claude
+*.iml

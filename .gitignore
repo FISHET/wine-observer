@@ -1,0 +1,18 @@
+node_modules/
+dist/
+
+wine-observer.iml
+
+# Credentials — never commit
+.env.local
+.env
+
+# Synced CellarTracker data (regenerate with `npm run sync`)
+data/*.csv
+
+# Editor
+.idea/
+*.iml
+
+# Docs
+docs/Cellar Plan 2026–2028.md
