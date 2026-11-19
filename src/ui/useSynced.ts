@@ -11,6 +11,8 @@ export type SyncedState<Page extends SyncedPage> = {
   syncing: boolean;
   /** The result of the last sync this session, so the UI can explain a skip. */
   outcome: OutcomeBody | null;
+  /** Counts finished syncs, so a notice closed after one shows again after the next. */
+  syncs: number;
   sync: (force?: boolean) => void;
 };
 
@@ -38,6 +40,7 @@ export function useSynced<Page extends SyncedPage>(
   const [error, setError] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [outcome, setOutcome] = useState<OutcomeBody | null>(null);
+  const [syncs, setSyncs] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,10 +74,13 @@ export function useSynced<Page extends SyncedPage>(
           setPhase('ready');
         })
         .catch((caught: Error) => setError(caught.message))
-        .finally(() => setSyncing(false));
+        .finally(() => {
+          setSyncing(false);
+          setSyncs((n) => n + 1);
+        });
     },
     [syncEndpoint],
   );
 
-  return { page, phase, error, syncing, outcome, sync };
+  return { page, phase, error, syncing, outcome, syncs, sync };
 }

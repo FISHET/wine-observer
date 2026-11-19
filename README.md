@@ -162,3 +162,7 @@ At `NIGHTLY_SYNC_AT` (default `03:00`, local time per `TZ`) the server syncs the
 
 Without `TZ`, the container would run on UTC and 03:00 would mean 04:00 BST.
 The image sets `TZ=Europe/London`.
+
+## Credits
+
+- The close icon on notices (`src/ui/assets/cancel.svg`) is from [SVG Repo](https://www.svgrepo.com/), under CC0, so no attribution is required.

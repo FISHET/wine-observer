@@ -5,6 +5,7 @@ import type { Table } from '../cellartracker.ts';
 import { outstandingFailures } from '../failures.ts';
 import { pageTitle } from '../pageTitle.ts';
 import { duration, timeAgo } from '../time.ts';
+import { Notice } from './Notice.tsx';
 import { Link } from './router.tsx';
 import type { SyncedState } from './useSynced.ts';
 
@@ -48,7 +49,7 @@ export function SyncedLayout<Page extends SyncedPage>({
   empty,
   children,
 }: Props<Page>) {
-  const { page, phase, error, syncing, outcome, sync } = state;
+  const { page, phase, error, syncing, outcome, syncs, sync } = state;
   useTicker();
   useTitle(title);
 
@@ -90,31 +91,31 @@ export function SyncedLayout<Page extends SyncedPage>({
       </header>
 
       {error && (
-        <p className="notice error" role="alert">
+        <Notice key={`error-${syncs}`} error>
           {error}
-        </p>
+        </Notice>
       )}
 
       {failures.length > 0 && lastRun && (
-        <p className="notice error" role="alert">
+        <Notice key={`nightly-${lastRun.startedAt}`} error>
           The automatic sync {timeAgo(new Date(lastRun.startedAt))} failed for{' '}
           {failures.map((f) => f.table).join(' and ')}: {failures[0]!.error}
-        </p>
+        </Notice>
       )}
 
       {outcome?.status === 'skipped' && !error && (
-        <p className="notice">
+        <Notice key={`skipped-${syncs}`}>
           Already synced {syncedAt ? timeAgo(syncedAt) : 'recently'}. CellarTracker ask that the
           export isn&rsquo;t pulled too often, so the next one is due in{' '}
           {duration((page?.minimumAgeMs ?? 0) - outcome.ageMs)}.{' '}
           <button type="button" className="link" onClick={() => sync(true)} disabled={syncing}>
             Sync anyway
           </button>
-        </p>
+        </Notice>
       )}
 
       {outcome?.status === 'synced' && !error && (
-        <p className="notice">Synced {outcome.records} rows from CellarTracker.</p>
+        <Notice key={`synced-${syncs}`}>Synced {outcome.records} rows from CellarTracker.</Notice>
       )}
 
       {phase === 'ready' && summary === null ? <p className="notice">{empty}</p> : children}

@@ -3,6 +3,7 @@ import { consumedColumns } from '../consumedColumns.ts';
 import type { ConsumedTotals } from '../consumed.ts';
 import { CONSUMED_TABLES } from '../pageTables.ts';
 import { DataTable } from './DataTable.tsx';
+import { Notice } from './Notice.tsx';
 import { SyncedLayout } from './SyncedLayout.tsx';
 import { useSynced } from './useSynced.ts';
 
@@ -34,33 +35,33 @@ export function ConsumedPage() {
       {page && page.wines.length > 0 && (
         <>
           {page.vivinoCheckIns === null && (
-            <p className="notice">
+            <Notice>
               No Vivino export found. Save Vivino&rsquo;s full wine list as{' '}
               <code>data/vivino.csv</code> to include it.
-            </p>
+            </Notice>
           )}
           {page.vivinoUnidentified > 0 && (
-            <p className="notice">
+            <Notice>
               {page.vivinoUnidentified === 1
                 ? '1 Vivino check-in is'
                 : `${page.vivinoUnidentified} Vivino check-ins are`}{' '}
               left out because they don&rsquo;t name a wine: label scans Vivino never identified.
-            </p>
+            </Notice>
           )}
           {page.vivinoCheckIns !== null && page.vivinoWishlisted === null && (
-            <p className="notice">
+            <Notice>
               No Vivino wishlist export found. Vivino&rsquo;s full wine list includes wishlisted
               wines, so save the wishlist as <code>data/wishlisted.csv</code> to leave them out.
-            </p>
+            </Notice>
           )}
           {page.vivinoWishlisted !== null && page.vivinoWishlisted > 0 && (
-            <p className="notice">
+            <Notice>
               {page.vivinoWishlisted === 1
                 ? '1 Vivino row is'
                 : `${page.vivinoWishlisted} Vivino rows are`}{' '}
               left out as wishlist entries: on <code>data/wishlisted.csv</code>, with no rating or
               review.
-            </p>
+            </Notice>
           )}
           {page.unmappedStyles.length > 0 && (
             <details className="notice">

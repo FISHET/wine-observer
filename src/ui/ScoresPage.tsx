@@ -3,6 +3,7 @@ import { SCORES_TABLES } from '../pageTables.ts';
 import type { ScoresTotals } from '../scores.ts';
 import { scoresColumns } from '../scoresColumns.ts';
 import { DataTable } from './DataTable.tsx';
+import { Notice } from './Notice.tsx';
 import { SyncedLayout } from './SyncedLayout.tsx';
 import { useSynced } from './useSynced.ts';
 
@@ -35,19 +36,19 @@ export function ScoresPage() {
       {page && page.tastings.length > 0 && (
         <>
           {page.vivinoCheckIns === null && (
-            <p className="notice">
+            <Notice>
               No Vivino export found. Save Vivino&rsquo;s full wine list as{' '}
               <code>data/vivino.csv</code> to include its ratings.
-            </p>
+            </Notice>
           )}
           {page.vivinoUnrated > 0 && (
-            <p className="notice">
+            <Notice>
               {page.vivinoUnrated === 1
                 ? '1 Vivino check-in has'
                 : `${page.vivinoUnrated} Vivino check-ins have`}{' '}
               no rating or review, so {page.vivinoUnrated === 1 ? 'it is' : 'they are'} counted on
               Consumed but not listed here. Vivino scores are converted from stars as 50 + 10 × stars.
-            </p>
+            </Notice>
           )}
           <DataTable
             rows={page.tastings}
