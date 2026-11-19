@@ -1,3 +1,4 @@
+import { PageCard } from './PageCard.tsx';
 import { Link } from './router.tsx';
 import { useTitle } from './SyncedLayout.tsx';
 
@@ -16,16 +17,13 @@ export function HomePage() {
         <h1 className="wordmark">WineObserver</h1>
       </header>
 
-      <ul className="pages">
+      <hr />
+
+      <nav className="page-cards" aria-label="Pages">
         {PAGES.map((page) => (
-          <li key={page.to}>
-            <Link to={page.to}>
-              <strong>{page.title}</strong>
-              <span>{page.blurb}</span>
-            </Link>
-          </li>
+          <PageCard key={page.to} {...page} />
         ))}
-      </ul>
+      </nav>
     </main>
   );
 }

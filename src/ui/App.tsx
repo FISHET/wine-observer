@@ -1,10 +1,11 @@
 import { CellarPage } from './CellarPage.tsx';
 import { ConsumedPage } from './ConsumedPage.tsx';
+import { Footer } from './Footer.tsx';
 import { HomePage, NotFoundPage } from './HomePage.tsx';
 import { usePath } from './router.tsx';
 import { ScoresPage } from './ScoresPage.tsx';
 
-export function App() {
+function Page() {
   switch (usePath()) {
     case '/':
       return <HomePage />;
@@ -17,4 +18,14 @@ export function App() {
     default:
       return <NotFoundPage />;
   }
+}
+
+/** Every page, with the footer they all share. */
+export function App() {
+  return (
+    <>
+      <Page />
+      <Footer />
+    </>
+  );
 }

@@ -41,7 +41,7 @@ h1 {
  */
 h1.wordmark {
   font-family: 'Instrument Serif', Georgia, serif;
-  font-size: 2.5rem;
+  font-size: 3.75rem;
   font-weight: 400;
   letter-spacing: 0;
   line-height: 1.1;
@@ -254,16 +254,20 @@ a {
   text-decoration: underline;
 }
 
-.pages {
+/* The home page's links, three across; one per row on a narrow screen. */
+.page-cards {
   display: grid;
-  gap: 0.75rem;
-  max-width: 32rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
 }
 
-.pages a {
+@media (max-width: 720px) {
+  .page-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.page-card {
   display: block;
   padding: 0.9rem 1.1rem;
   border: 1px solid var(--line);
@@ -273,16 +277,46 @@ a {
   text-decoration: none;
 }
 
-.pages a:hover {
+.page-card:hover {
   background: #f0e9e1;
 }
 
-.pages strong {
+.page-card strong {
   display: block;
   font-size: 1.05rem;
 }
 
-.pages span {
+.page-card span {
   color: var(--muted);
   font-size: 13.5px;
+}
+
+/* The footer sits at the bottom of the window even when the page is short. */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+#root > main {
+  flex: 1;
+}
+
+.site-footer {
+  padding: 1.5rem;
+  background: var(--wine);
+  color: #f7ecee;
+  font-size: 13px;
+}
+
+.site-footer-name {
+  display: block;
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 1.25rem;
+}
+
+.site-footer-credit {
+  display: block;
+  margin-top: 0.15rem;
+  opacity: 0.8;
 }
