@@ -149,8 +149,8 @@ describe('scores columns', () => {
 
   test('lead with the score, then follow the order of every wine table', () => {
     assert.deepEqual(
-      scoresColumns.slice(0, 8).map((c) => c.label),
-      ['Score', 'Producer', 'Wine', 'Vintage', 'Style', 'Country', 'Region', 'Grape'],
+      scoresColumns.slice(0, 9).map((c) => c.label),
+      ['Score', 'Producer', 'Wine', 'Vintage', 'Style', 'Country', 'Region', 'Appellation', 'Grape'],
     );
   });
 

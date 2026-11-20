@@ -78,6 +78,8 @@ export type WineDescription = Pick<
   | 'appellation'
   | 'grape'
   | 'vivinoStyle'
+  | 'regionGroup'
+  | 'regionMapped'
 >;
 
 type Group<T> = { items: T[]; dates: string[] };

@@ -14,6 +14,7 @@ import {
   type Direction,
 } from './table.ts';
 import type { Wine } from './wine.ts';
+import { placeColumns } from './wineColumns.ts';
 
 export { EMPTY };
 
@@ -59,14 +60,7 @@ export const columns: Column<Wine>[] = [
     sortValue: (w) => w.country,
     render: (w) => w.country,
   },
-  {
-    key: 'region',
-    label: 'Region',
-    align: 'left',
-    sortValue: (w) => w.region,
-    render: (w) => w.region ?? EMPTY,
-    title: (w) => [w.subRegion, w.appellation].filter(Boolean).join(' · ') || undefined,
-  },
+  ...placeColumns<Wine>(),
   {
     key: 'grape',
     label: 'Grape',

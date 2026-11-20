@@ -139,9 +139,14 @@ count under, such as `"Châteauneuf-du-Pape": "Southern Rhône"`. It's
 hand-maintained and committed, and it's re-read on each page load. Each wine is
 looked up by its most specific name first: the appellation, then the
 sub-region, then the region. A wine that isn't covered keeps its region as
-recorded, and `/consumed` lists those regions, most drunk first. The grouping
-feeds the home page's Favourites card. The tables still show each wine's region
-as recorded.
+recorded, and `/consumed` lists those regions, most drunk first.
+
+The grouping is used everywhere a region appears. The home page cards use it,
+and so does the **Region** column on `/cellar`, `/consumed` and `/scores`.
+Hover a region to see what was recorded. Each table also has an
+**Appellation** column: the most specific name recorded, which is the
+appellation, else the sub-region, else the region. So Vieux Télégraphe reads
+"Southern Rhône" and "Châteauneuf-du-Pape" whichever app it came from.
 
 ## Running on the home server
 
