@@ -34,8 +34,8 @@ export type Tasting = WineDescription & {
 };
 
 function describe(line: WineDescription): WineDescription {
-  const { name, wine, sortWine, producer, sortProducer, vintage, isNonVintage, style, country, region, subRegion, appellation, grape, vivinoStyle } = line;
-  return { name, wine, sortWine, producer, sortProducer, vintage, isNonVintage, style, country, region, subRegion, appellation, grape, vivinoStyle };
+  const { name, wine, sortWine, producer, sortProducer, vintage, isNonVintage, style, country, region, subRegion, appellation, grape, vivinoStyle, regionGroup, regionMapped } = line;
+  return { name, wine, sortWine, producer, sortProducer, vintage, isNonVintage, style, country, region, subRegion, appellation, grape, vivinoStyle, regionGroup, regionMapped };
 }
 
 export function buildTastings(wines: readonly MergedWine[]): Tasting[] {

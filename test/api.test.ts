@@ -68,7 +68,8 @@ describe('GET /api/cellar', () => {
 
     assert.equal(status, 200);
     assert.equal(cellar.wines.length, 2);
-    assert.deepEqual(cellar.totals, { wines: 2, bottles: 7, pending: 0 });
+    // The fixture has no Valuation column, so nothing is valued.
+    assert.deepEqual(cellar.totals, { wines: 2, bottles: 7, pending: 0, value: 0, unvaluedBottles: 7 });
     assert.equal(cellar.wines[0]!.wine, 'Château Batailley');
     assert.ok(cellar.lastSyncedAt, 'should report when it was synced');
   });
@@ -290,6 +291,28 @@ describe('GET /api/consumed', () => {
 
     assert.deepEqual((body as ConsumedData).wines, []);
     assert.equal((body as ConsumedData).lastSyncedAt, null);
+  });
+});
+
+describe('GET /api/cellar regions', () => {
+  test('groups each wine through data/regions.json, as the consumed page does', async () => {
+    const dataDir = await newDataDir();
+    await writeFile(
+      filePath(dataDir, 'List'),
+      'iWine,Wine,Quantity,Vintage,Region,SubRegion,Appellation\n' +
+        '1,Vieux Télégraphe,6,2010,Rhône,Southern Rhône,Châteauneuf-du-Pape\n' +
+        '2,Penfolds Bin 389,1,2021,South Australia,,\n',
+      'utf8',
+    );
+    await writeFile(join(dataDir, 'regions.json'), '{ "Southern Rhône": "Southern Rhône" }', 'utf8');
+
+    const { body } = await call(createApi({ dataDir }), 'GET', '/api/cellar');
+    const groups = (body as Cellar).wines.map((w) => [w.regionGroup, w.regionMapped]);
+
+    assert.deepEqual(groups, [
+      ['Southern Rhône', true],
+      ['South Australia', false],
+    ]);
   });
 });
 

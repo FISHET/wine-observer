@@ -69,6 +69,7 @@ export function SyncedLayout<Page extends SyncedPage>({
       <header>
         <div>
           <h1>{title}</h1>
+          <hr/>
           <p className="summary">
             {summary ?? (phase === 'loading' ? 'Loading…' : 'Nothing synced yet')}
           </p>

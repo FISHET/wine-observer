@@ -41,7 +41,7 @@ h1 {
  */
 h1.wordmark {
   font-family: 'Instrument Serif', Georgia, serif;
-  font-size: 2.5rem;
+  font-size: 3.75rem;
   font-weight: 400;
   letter-spacing: 0;
   line-height: 1.1;
@@ -254,16 +254,20 @@ a {
   text-decoration: underline;
 }
 
-.pages {
+/* The home page's links, three across; one per row on a narrow screen. */
+.page-cards {
   display: grid;
-  gap: 0.75rem;
-  max-width: 32rem;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
 }
 
-.pages a {
+@media (max-width: 720px) {
+  .page-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.page-card {
   display: block;
   padding: 0.9rem 1.1rem;
   border: 1px solid var(--line);
@@ -273,16 +277,203 @@ a {
   text-decoration: none;
 }
 
-.pages a:hover {
+.page-card:hover {
   background: #f0e9e1;
 }
 
-.pages strong {
+.page-card strong {
   display: block;
   font-size: 1.05rem;
 }
 
-.pages span {
+.page-card span {
   color: var(--muted);
   font-size: 13.5px;
+}
+
+/*
+ * The home page's dashboard: cards for stats, lists and charts, in the same
+ * three columns as the page links, so each card sits under its page. One
+ * column on a narrow screen. Sizes per card can come later.
+ */
+.dashboard {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+@media (max-width: 720px) {
+  .dashboard {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* A meter list: name and figure over a bar showing its share. */
+.tally + .tally {
+  margin-top: 1rem;
+}
+
+.tally-label {
+  margin: 0 0 0.4rem;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.tally-list {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tally-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 0.75rem;
+  row-gap: 0.2rem;
+  font-size: 13.5px;
+}
+
+.tally-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tally-count {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tally-bar {
+  grid-column: 1 / -1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--row);
+}
+
+.tally-bar > span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--wine);
+}
+
+.flag {
+  flex: none;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--line);
+}
+
+.card .stat-note {
+  display: block;
+  margin: 1rem 0 0;
+}
+
+/*
+ * A card's parts (title, figures, lists, note) sit on the dashboard's own
+ * rows through subgrid, so the same part lines up across the cards in a row
+ * even when one wraps and the other doesn't. A card with fewer parts, such
+ * as one still loading, simply leaves its later rows empty.
+ */
+.card {
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+  align-content: start;
+  padding: 1rem 1.1rem 1.1rem;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+.card > .stat-row {
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.card > .breakdown {
+  padding-top: 1rem;
+}
+
+.card-title {
+  margin: 0 0 0.85rem;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.card-message {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+}
+
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem 2.5rem;
+}
+
+.stat-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.stat-label {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+/* Proportional figures: tabular digits look loose at this size. */
+.stat-value {
+  color: var(--ink);
+  font-size: 2rem;
+  font-weight: 600;
+  line-height: 1.15;
+}
+
+.stat-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* The footer sits at the bottom of the window even when the page is short. */
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+#root > main {
+  flex: 1;
+}
+
+.site-footer {
+  padding: 1.5rem;
+  background: var(--wine);
+  color: #f7ecee;
+  font-size: 13px;
+}
+
+.site-footer-name {
+  display: block;
+  font-family: 'Instrument Serif', Georgia, serif;
+  font-size: 1.25rem;
+}
+
+.site-footer-credit {
+  display: block;
+  margin-top: 0.15rem;
+  opacity: 0.8;
 }

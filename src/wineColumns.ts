@@ -1,12 +1,60 @@
 /**
  * The columns every wine table starts with, in the same order: Producer,
- * Wine, Vintage, Style, Country, Region, Grape. Each table adds its own after.
+ * Wine, Vintage, Style, Country, Region, Appellation, Grape. Each table adds
+ * its own after.
  *
  * Producer leads because many wines, sparkling especially, are named only
  * "Brut" or "Blanc de Blancs" and read as nothing without it.
  */
 import type { WineDescription } from './consumed.ts';
 import { asYear, EMPTY, type Column } from './table.ts';
+
+/** Where a wine is from, as recorded and as grouped by data/regions.json. */
+type Place = {
+  region: string | null;
+  subRegion: string | null;
+  appellation: string | null;
+  regionGroup: string | null;
+  regionMapped: boolean;
+};
+
+/**
+ * The most specific name recorded: CellarTracker's appellation, else its
+ * sub-region, else its region. Vivino records one name, usually the
+ * appellation, so the same wine reads the same from either app.
+ */
+export function appellationOf(w: Place): string | null {
+  return w.appellation ?? w.subRegion ?? w.region;
+}
+
+/**
+ * Region and Appellation, the same on every table. Region is the grouping
+ * from data/regions.json ("Southern Rhône"); Appellation is the most specific
+ * name recorded ("Châteauneuf-du-Pape").
+ */
+export function placeColumns<T extends Place>(): Column<T>[] {
+  return [
+    {
+      key: 'region',
+      label: 'Region',
+      align: 'left',
+      sortValue: (w) => w.regionGroup,
+      render: (w) => w.regionGroup ?? EMPTY,
+      title: (w) => {
+        const recorded = [w.region, w.subRegion, w.appellation].filter(Boolean).join(' › ');
+        if (!recorded) return undefined;
+        return w.regionMapped ? `Recorded as ${recorded}` : `Recorded as ${recorded}; not in data/regions.json yet`;
+      },
+    },
+    {
+      key: 'appellation',
+      label: 'Appellation',
+      align: 'left',
+      sortValue: appellationOf,
+      render: (w) => appellationOf(w) ?? EMPTY,
+    },
+  ];
+}
 
 export function wineColumns<T extends WineDescription>(): Column<T>[] {
   return [
@@ -49,14 +97,7 @@ export function wineColumns<T extends WineDescription>(): Column<T>[] {
       sortValue: (w) => w.country || null,
       render: (w) => w.country || EMPTY,
     },
-    {
-      key: 'region',
-      label: 'Region',
-      align: 'left',
-      sortValue: (w) => w.region,
-      render: (w) => w.region ?? EMPTY,
-      title: (w) => [w.subRegion, w.appellation].filter(Boolean).join(' · ') || undefined,
-    },
+    ...placeColumns<T>(),
     {
       key: 'grape',
       label: 'Grape',

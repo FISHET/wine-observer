@@ -45,6 +45,13 @@ export type Wine = {
   appellation: string | null;
   /** MasterVarietal: the tidier of the two grape fields. */
   grape: string | null;
+  /**
+   * The region to count the wine under, from data/regions.json (see
+   * regions.ts). The region as recorded until the API applies the table.
+   */
+  regionGroup: string | null;
+  /** Whether data/regions.json gave regionGroup. */
+  regionMapped: boolean;
   size: string;
   /** Bottles held, including any in bond. */
   inStock: number;
@@ -140,6 +147,8 @@ export function toWine(row: Row): Wine {
     subRegion: text(row, 'SubRegion'),
     appellation: text(row, 'Appellation'),
     grape: text(row, 'MasterVarietal') ?? text(row, 'Varietal'),
+    regionGroup: text(row, 'Region'),
+    regionMapped: false,
     size: (row['Size'] ?? '').trim(),
     inStock: count(row, 'Quantity'),
     pending: count(row, 'Pending'),
@@ -165,6 +174,13 @@ export type CellarTotals = {
   wines: number;
   bottles: number;
   pending: number;
+  /**
+   * What the bottles in stock are worth: each wine's valuation times its
+   * bottles. Pending bottles aren't counted, as they aren't held yet.
+   */
+  value: number;
+  /** Bottles in stock with no valuation, so left out of `value`. */
+  unvaluedBottles: number;
 };
 
 export function totals(wines: Wine[]): CellarTotals {
@@ -172,5 +188,7 @@ export function totals(wines: Wine[]): CellarTotals {
     wines: wines.length,
     bottles: wines.reduce((sum, w) => sum + w.inStock, 0),
     pending: wines.reduce((sum, w) => sum + w.pending, 0),
+    value: wines.reduce((sum, w) => sum + (w.value ?? 0) * w.inStock, 0),
+    unvaluedBottles: wines.reduce((sum, w) => sum + (w.value === null ? w.inStock : 0), 0),
   };
 }

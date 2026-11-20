@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test, { describe } from 'node:test';
 
 import { columns } from '../src/columns.ts';
-import { buildConsumed, consumedTotals, sourceLabel, unmappedStyles } from '../src/consumed.ts';
+import { buildConsumed, consumedTotals, sourceLabel, unmappedRegions, unmappedStyles } from '../src/consumed.ts';
 import { asDate, consumedColumns } from '../src/consumedColumns.ts';
 import type { Entry } from '../src/notes.ts';
 import { sortRows } from '../src/table.ts';
@@ -86,6 +86,35 @@ describe('buildConsumed', () => {
     assert.equal(line!.vivinoStyle, 'Californian Zinfandel', 'the original is kept');
   });
 
+  test('groups regions through the table, from both apps', () => {
+    const regions = new Map([['Southern Rhône', 'Southern Rhône'], ['Gigondas', 'Southern Rhône']]);
+    const lines = buildConsumed(
+      [entry({ region: 'Rhône', subRegion: 'Southern Rhône', appellation: 'Vacqueyras' })],
+      [checkIn({ producer: 'Saint Cosme', name: 'Gigondas', wine: 'Saint Cosme Gigondas', region: 'Gigondas', country: 'France' })],
+      new Map(),
+      regions,
+    );
+    assert.deepEqual(lines.map((l) => [l.regionGroup, l.regionMapped]), [
+      ['Southern Rhône', true],
+      ['Southern Rhône', true],
+    ]);
+  });
+
+  test('lists the regions still to group, most bottles first', () => {
+    const lines = buildConsumed(
+      [],
+      [
+        checkIn({ region: 'Paso Robles' }),
+        checkIn({ vintage: 2021, region: 'Lodi' }),
+        checkIn({ vintage: 2020, region: 'Lodi' }),
+        checkIn({ vintage: 2019, region: 'Napa Valley' }),
+      ],
+      new Map(),
+      new Map([['Napa Valley', 'Napa Valley']]),
+    );
+    assert.deepEqual(unmappedRegions(lines), ['Lodi (USA)', 'Paso Robles (USA)']);
+  });
+
   test('lists the styles still to map, once each', () => {
     const lines = buildConsumed(
       [],
@@ -165,9 +194,9 @@ describe('consumed columns', () => {
   });
 
   test('start in the same order as the cellar table', () => {
-    const shared = ['Producer', 'Wine', 'Vintage', 'Style', 'Country', 'Region', 'Grape'];
-    assert.deepEqual(consumedColumns.slice(0, 7).map((c) => c.label), shared);
-    assert.deepEqual(columns.slice(0, 7).map((c) => c.label), shared);
+    const shared = ['Producer', 'Wine', 'Vintage', 'Style', 'Country', 'Region', 'Appellation', 'Grape'];
+    assert.deepEqual(consumedColumns.slice(0, 8).map((c) => c.label), shared);
+    assert.deepEqual(columns.slice(0, 8).map((c) => c.label), shared);
   });
 
   test('show dates the British way', () => {
@@ -190,5 +219,34 @@ describe('consumed columns', () => {
     const [line] = buildConsumed([entry({})], [checkIn({}), checkIn({})]);
     assert.equal(column('bottles').render(line!), '2');
     assert.equal(column('bottles').title!(line!), 'CellarTracker 1 · Vivino 2');
+  });
+});
+
+describe('region and appellation columns', () => {
+  const region = consumedColumns.find((c) => c.key === 'region')!;
+  const appellation = consumedColumns.find((c) => c.key === 'appellation')!;
+  const regions = new Map([['Châteauneuf-du-Pape', 'Southern Rhône'], ['Southern Rhône', 'Southern Rhône']]);
+
+  test('read the same for a wine from either app', () => {
+    const [fromCellarTracker] = buildConsumed(
+      [entry({ region: 'Rhône', subRegion: 'Southern Rhône', appellation: 'Châteauneuf-du-Pape' })],
+      [],
+      new Map(),
+      regions,
+    );
+    const [fromVivino] = buildConsumed([], [checkIn({ region: 'Châteauneuf-du-Pape' })], new Map(), regions);
+
+    for (const line of [fromCellarTracker!, fromVivino!]) {
+      assert.equal(region.render(line), 'Southern Rhône');
+      assert.equal(appellation.render(line), 'Châteauneuf-du-Pape');
+    }
+    assert.equal(region.title!(fromCellarTracker!), 'Recorded as Rhône › Southern Rhône › Châteauneuf-du-Pape');
+  });
+
+  test('fall back to the most specific name recorded, and say when it is not grouped', () => {
+    const [line] = buildConsumed([entry({ region: 'California', subRegion: 'Napa Valley', appellation: null })], []);
+    assert.equal(region.render(line!), 'California');
+    assert.equal(appellation.render(line!), 'Napa Valley');
+    assert.match(region.title!(line!)!, /not in data\/regions\.json yet/);
   });
 });

@@ -130,7 +130,20 @@ describe('totals', () => {
       { iWine: '2', Quantity: '1' },
       { iWine: '3', Pending: '6' },
     );
-    assert.deepEqual(totals(parseCellar(csv)), { wines: 3, bottles: 7, pending: 6 });
+    const { wines, bottles, pending } = totals(parseCellar(csv));
+    assert.deepEqual({ wines, bottles, pending }, { wines: 3, bottles: 7, pending: 6 });
+  });
+
+  test('values the bottles in stock, and counts those with no valuation', () => {
+    const csv = csvOf(
+      { iWine: '1', Quantity: '6', Valuation: '45' },
+      { iWine: '2', Quantity: '2', Valuation: '' },
+      // Ordered, not yet held: not part of the cellar's value.
+      { iWine: '3', Pending: '6', Valuation: '30' },
+    );
+    const { value, unvaluedBottles } = totals(parseCellar(csv));
+    assert.equal(value, 270);
+    assert.equal(unvaluedBottles, 2);
   });
 });
 
