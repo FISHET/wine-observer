@@ -32,7 +32,7 @@ import {
 } from './consumed.ts';
 import { buildTastings, scoresTotals, type ScoresTotals, type Tasting } from './scores.ts';
 import { DataFileError, GRAPE_STYLES_FILE, parseGrapeStyles } from './grapeStyles.ts';
-import { parseRegions, REGIONS_FILE } from './regions.ts';
+import { groupRegion, parseRegions, REGIONS_FILE } from './regions.ts';
 import { buildEntries, fillProducers, parseConsumed, parseNotes, parseProducers } from './notes.ts';
 import { parseVivino, VIVINO_FILE, WISHLIST_FILE } from './vivino.ts';
 import type { NightlyStatus } from './nightly.ts';
@@ -166,7 +166,11 @@ export function createApi(options: ApiOptions) {
 
   async function readCellar(): Promise<Cellar> {
     const tables = await readTables(CELLAR_TABLES);
-    const wines = tables[0]?.csv ? parseCellar(tables[0].csv) : [];
+    const regions = await readRegions();
+    const wines = (tables[0]?.csv ? parseCellar(tables[0].csv) : []).map((wine) => ({
+      ...wine,
+      ...groupRegion(wine, regions),
+    }));
     return { ...freshness(tables), wines, totals: totals(wines) };
   }
 

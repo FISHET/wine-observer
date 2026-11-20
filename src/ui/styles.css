@@ -299,7 +299,7 @@ a {
 .dashboard {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  align-items: start;
+  align-items: stretch;
   gap: 1rem;
   margin-top: 1rem;
 }
@@ -377,10 +377,30 @@ a {
   margin: 1rem 0 0;
 }
 
+/*
+ * A card's parts (title, figures, lists, note) sit on the dashboard's own
+ * rows through subgrid, so the same part lines up across the cards in a row
+ * even when one wraps and the other doesn't. A card with fewer parts, such
+ * as one still loading, simply leaves its later rows empty.
+ */
 .card {
+  display: grid;
+  grid-row: span 4;
+  grid-template-rows: subgrid;
+  row-gap: 0;
+  align-content: start;
   padding: 1rem 1.1rem 1.1rem;
   border: 1px solid var(--line);
   background: #fff;
+}
+
+.card > .stat-row {
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--line);
+}
+
+.card > .breakdown {
+  padding-top: 1rem;
 }
 
 .card-title {

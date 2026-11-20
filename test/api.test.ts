@@ -294,6 +294,28 @@ describe('GET /api/consumed', () => {
   });
 });
 
+describe('GET /api/cellar regions', () => {
+  test('groups each wine through data/regions.json, as the consumed page does', async () => {
+    const dataDir = await newDataDir();
+    await writeFile(
+      filePath(dataDir, 'List'),
+      'iWine,Wine,Quantity,Vintage,Region,SubRegion,Appellation\n' +
+        '1,Vieux Télégraphe,6,2010,Rhône,Southern Rhône,Châteauneuf-du-Pape\n' +
+        '2,Penfolds Bin 389,1,2021,South Australia,,\n',
+      'utf8',
+    );
+    await writeFile(join(dataDir, 'regions.json'), '{ "Southern Rhône": "Southern Rhône" }', 'utf8');
+
+    const { body } = await call(createApi({ dataDir }), 'GET', '/api/cellar');
+    const groups = (body as Cellar).wines.map((w) => [w.regionGroup, w.regionMapped]);
+
+    assert.deepEqual(groups, [
+      ['Southern Rhône', true],
+      ['South Australia', false],
+    ]);
+  });
+});
+
 describe('GET /api/scores', () => {
   test('lists every tasting from both apps, one line each', async () => {
     const dataDir = await newDataDir();

@@ -3,7 +3,7 @@ import test, { describe } from 'node:test';
 
 import type { ConsumedWine } from '../src/consumed.ts';
 import { countryCode } from '../src/countries.ts';
-import { broadStyle, favourites } from '../src/favourites.ts';
+import { breakdown, broadStyle } from '../src/breakdown.ts';
 
 const line = (overrides: Partial<ConsumedWine>): ConsumedWine => ({
   key: 'x',
@@ -40,9 +40,9 @@ describe('broadStyle', () => {
   });
 });
 
-describe('favourites', () => {
+describe('breakdown', () => {
   test('ranks by bottles drunk, not by wines', () => {
-    const fav = favourites([
+    const fav = breakdown([
       line({ style: 'White', bottles: 1 }),
       line({ style: 'White', bottles: 1 }),
       line({ style: 'Red', bottles: 3 }),
@@ -55,7 +55,7 @@ describe('favourites', () => {
   });
 
   test('adds the sparkling wines up across both apps', () => {
-    const fav = favourites([
+    const fav = breakdown([
       line({ style: 'Sparkling', bottles: 2 }),
       line({ style: 'White - Sparkling', bottles: 1 }),
       line({ style: 'Red', bottles: 2 }),
@@ -64,12 +64,12 @@ describe('favourites', () => {
   });
 
   test('keeps the top three, ties in name order', () => {
-    const fav = favourites(['Syrah', 'Merlot', 'Gamay', 'Zinfandel'].map((grape) => line({ grape })));
+    const fav = breakdown(['Syrah', 'Merlot', 'Gamay', 'Zinfandel'].map((grape) => line({ grape })));
     assert.deepEqual(fav.grapes.map((g) => g.name), ['Gamay', 'Merlot', 'Syrah']);
   });
 
   test('carries the country with a region, and keeps same-named regions apart', () => {
-    const fav = favourites([
+    const fav = breakdown([
       line({ regionGroup: 'Georgia', country: 'USA' }),
       line({ regionGroup: 'Georgia', country: 'Georgia', bottles: 2 }),
     ]);
@@ -80,7 +80,7 @@ describe('favourites', () => {
   });
 
   test('skips wines with no region or grape', () => {
-    const fav = favourites([line({ region: null, regionGroup: null, grape: null })]);
+    const fav = breakdown([line({ region: null, regionGroup: null, grape: null })]);
     assert.deepEqual(fav.regions, []);
     assert.deepEqual(fav.grapes, []);
   });
